@@ -18,6 +18,10 @@ pretty_env_logger = "0.3"
 tokio = { version = "1.20.1", features = ["full"] }
 tmq = "0.3.2"
 zmq = "0.9"
+prost = "0.11"
+
+[build-dependencies]
+prost-build = "0.11"
 
 [features]
 vendored-zmq = ["zmq/vendored"]

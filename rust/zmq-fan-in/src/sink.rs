@@ -2,13 +2,29 @@ use futures::StreamExt;
 
 use log::info;
 
+use prost::bytes;
+use prost::Message;
+
 use std::env;
-use tmq::{pull, Context, Result};
+use tmq::{pull, Context};
 
 const DEFAULT_SINK_URL: &str = "tcp://127.0.0.1:6000";
 
+pub mod msg {
+    include!(concat!(env!("OUT_DIR"), "/msg.rs"));
+}
+
+impl TryFrom<&tmq::Message> for msg::ProducerMessage {
+    type Error = prost::DecodeError;
+
+    fn try_from(msg: &tmq::Message) -> Result<Self, prost::DecodeError> {
+        let mut buf = bytes::BytesMut::from(&msg[..]);
+        Self::decode(&mut buf)
+    }
+}
+
 #[tokio::main]
-async fn main() -> Result<()> {
+async fn main() -> tmq::Result<()> {
     if let Err(_) = env::var("RUST_LOG") {
         env::set_var("RUST_LOG", "subscribe=DEBUG");
     }
@@ -34,8 +50,8 @@ async fn main() -> Result<()> {
         info!(
             "Pull: {:?}",
             msg?.iter()
-                .map(|item| item.as_str().unwrap_or("invalid text"))
-                .collect::<Vec<&str>>()
+                .map(|item| item.try_into().expect("valid message"))
+                .collect::<Vec<msg::ProducerMessage>>()
         );
     }
 
