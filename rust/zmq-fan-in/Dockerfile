@@ -24,6 +24,7 @@ RUN cargo build --release --bins
 # Build runtime image without the Rust toolchain and additional dependencies
 FROM debian:buster-slim AS runtime
 ENV PRODUCER_ID producer
+ENV PRODUCER_URL tcp://127.0.0.1:6001
 ENV SINK_URL tcp://127.0.0.1:6000
 WORKDIR app
 RUN apt-get update -qq \

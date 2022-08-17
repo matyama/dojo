@@ -5,9 +5,12 @@ services:
     image: ${DOCKER_IMG}
     build: .
     command: producer
+    ports:
+      - "6001:6000"
     environment:
       - RUST_LOG
       - PRODUCER_ID={{.Task.Slot}}
+      - PRODUCER_URL=tcp://{{.Task.Name}}:6000
       - SINK_URL=tcp://sink:6000
     depends_on:
       - sink

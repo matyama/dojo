@@ -3,6 +3,6 @@ package msg;
 
 message ProducerMessage {
    string sender = 1;
-   string data = 3;
+   string data = 2;
 }
 

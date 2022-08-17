@@ -11,6 +11,7 @@ use std::env;
 use tmq::{push, Context};
 
 const DEFAULT_SINK_URL: &str = "tcp://127.0.0.1:6000";
+const DEFAULT_PRODUCER_URL: &str = "tcp://127.0.0.1:6001";
 
 pub mod msg {
     include!(concat!(env!("OUT_DIR"), "/msg.rs"));
@@ -33,6 +34,8 @@ async fn main() -> tmq::Result<()> {
         .or_else(|| env::var("PRODUCER_ID").ok())
         .expect("no producer ID given");
 
+    let producer_url = env::var("PRODUCER_URL").unwrap_or_else(|_| DEFAULT_PRODUCER_URL.to_owned());
+
     if let Err(_) = env::var("RUST_LOG") {
         env::set_var("RUST_LOG", "subscribe=DEBUG");
     }
@@ -41,13 +44,13 @@ async fn main() -> tmq::Result<()> {
 
     let endpoint = match env::var("SINK_URL") {
         Ok(url) => {
-            info!("[{}] Producing to {}", producer_id, url);
+            info!("[{} @ {}] Producing to {}", producer_id, producer_url, url);
             url
         }
         Err(_) => {
             info!(
-                "[{}] SINK_URL not set, producing to {}",
-                producer_id, DEFAULT_SINK_URL
+                "[{} @ {}] SINK_URL not set, producing to {}",
+                producer_id, producer_url, DEFAULT_SINK_URL
             );
             DEFAULT_SINK_URL.to_owned()
         }
