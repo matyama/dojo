@@ -2,8 +2,8 @@ use futures::StreamExt;
 
 use log::info;
 
-use prost::bytes;
 use prost::Message;
+use std::io::Cursor;
 
 use std::env;
 use tmq::{pull, Context};
@@ -14,12 +14,11 @@ pub mod msg {
     include!(concat!(env!("OUT_DIR"), "/msg.rs"));
 }
 
-impl TryFrom<&tmq::Message> for msg::ProducerMessage {
+impl TryFrom<tmq::Message> for msg::ProducerMessage {
     type Error = prost::DecodeError;
 
-    fn try_from(msg: &tmq::Message) -> Result<Self, prost::DecodeError> {
-        let mut buf = bytes::BytesMut::from(&msg[..]);
-        Self::decode(&mut buf)
+    fn try_from(msg: tmq::Message) -> Result<Self, prost::DecodeError> {
+        Self::decode(&mut Cursor::new(&msg[..]))
     }
 }
 
@@ -33,11 +32,11 @@ async fn main() -> tmq::Result<()> {
 
     let endpoint = match env::var("SINK_URL") {
         Ok(url) => {
-            info!("Collecting at '{}'", url);
+            info!("Collecting at {}", url);
             url
         }
         Err(_) => {
-            info!("SINK_URL not set, collecting at '{}'", DEFAULT_SINK_URL);
+            info!("SINK_URL not set, collecting at {}", DEFAULT_SINK_URL);
             DEFAULT_SINK_URL.to_owned()
         }
     };
@@ -46,11 +45,12 @@ async fn main() -> tmq::Result<()> {
 
     let mut socket = pull(&ctx).bind(&endpoint)?;
 
-    while let Some(msg) = socket.next().await {
+    while let Some(msgs) = socket.next().await {
         info!(
             "Pull: {:?}",
-            msg?.iter()
-                .map(|item| item.try_into().expect("valid message"))
+            msgs?
+                .into_iter()
+                .map(|msg| msg.try_into().expect("valid message"))
                 .collect::<Vec<msg::ProducerMessage>>()
         );
     }

@@ -39,3 +39,50 @@ cargo run --bin producer --features="vendored-zmq" P1
 cargo run --bin producer --features="vendored-zmq" P2
 ```
 
+## Docker Swarm
+
+### Setup
+Setup docker swarm with registry using `make`. This does roughly the
+following:
+```bash
+# Initialize swarm mode
+docker swarm init
+
+# Create local registry service
+docker service create \
+	--name registry \
+	--publish published=5000,target=5000 \
+	registry:2
+```
+
+### Build & deploy
+Once set up an in swarm mode, one can deploy services via `make install`:
+```bash
+# Build Docker images
+docker-compose build
+
+# Push images to the local registry
+docker-compose push
+
+# Deploy everything to the swarm
+docker stack deploy -c docker-compose.yml zmq-fan-in
+```
+
+### Inspect & scale
+There are some handy commands to interact with the swarm:
+ - `docker service ls` lists services, displays replicas
+ - `docker service scale zmq-fan-in_producer=10` will scale the number
+	 of producers to 10
+ - `docker service logs -f zmq-fan-in_sink` will attack and follow logs
+	 of the sink service
+
+### Shutdown services
+Finally, terminate and cleanup using `make clean`:
+```bash
+# Shutdown services
+docker stack rm zmq-fan-in
+docker service rm registry
+
+# Leave swarm mode
+docker swarm leave --force
+```

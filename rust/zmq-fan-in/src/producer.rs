@@ -28,7 +28,10 @@ impl TryFrom<msg::ProducerMessage> for Vec<u8> {
 
 #[tokio::main]
 async fn main() -> tmq::Result<()> {
-    let producer_id = std::env::args().nth(1).expect("no producer ID given");
+    let producer_id = std::env::args()
+        .nth(1)
+        .or_else(|| env::var("PRODUCER_ID").ok())
+        .expect("no producer ID given");
 
     if let Err(_) = env::var("RUST_LOG") {
         env::set_var("RUST_LOG", "subscribe=DEBUG");
@@ -38,12 +41,12 @@ async fn main() -> tmq::Result<()> {
 
     let endpoint = match env::var("SINK_URL") {
         Ok(url) => {
-            info!("[{}] Producing to '{}'", producer_id, url);
+            info!("[{}] Producing to {}", producer_id, url);
             url
         }
         Err(_) => {
             info!(
-                "[{}] SINK_URL not set, producing to '{}'",
+                "[{}] SINK_URL not set, producing to {}",
                 producer_id, DEFAULT_SINK_URL
             );
             DEFAULT_SINK_URL.to_owned()

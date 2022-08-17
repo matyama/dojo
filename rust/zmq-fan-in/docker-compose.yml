@@ -1,0 +1,25 @@
+version: "3"
+services:
+
+  producer:
+    image: ${DOCKER_IMG}
+    build: .
+    command: producer
+    environment:
+      - RUST_LOG
+      - PRODUCER_ID={{.Task.Slot}}
+      - SINK_URL=tcp://sink:6000
+    depends_on:
+      - sink
+    deploy:
+      replicas: 2
+
+  sink:
+    image: ${DOCKER_IMG}
+    build: .
+    command: sink
+    ports:
+      - "6000:6000"
+    environment:
+      - RUST_LOG
+      - SINK_URL=tcp://*:6000
