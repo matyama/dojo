@@ -1,0 +1,34 @@
+version: "3"
+services:
+
+  # TODO: https://github.com/bitnami/containers/blob/main/bitnami/redis-cluster/docker-compose.yml
+  redis:
+    image: bitnami/redis:latest
+    ports:
+      - "6379:6379"
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    volumes:
+      - ./data/redis:/bitnami/redis/data
+
+  redisinsight:
+    image: redislabs/redisinsight:latest
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data/redisinsight:/db
+    depends_on:
+      - redis
+
+  pubsub:
+    image: ${DOCKER_IMG}
+    build: .
+    environment:
+      - RUST_LOG
+      - REPLICA_ID={{.Task.Slot}}
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      - redis
+    deploy:
+      replicas: 10
+
