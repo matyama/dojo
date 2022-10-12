@@ -1,0 +1,76 @@
+[tool.poetry]
+name = "csp"
+version = "0.1.0"
+description = "CSP solver"
+license = "MIT"
+authors = ["Martin Matyášek <martin.matyasek@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/matyama/dojo"
+keywords = ["CSP", "python", "algorithms"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+
+[tool.poetry.dev-dependencies]
+black = "*"
+flake8 = "*"
+flake8-black = "*"
+flake8-comprehensions = "*"
+flake8-isort = "*"
+flake8-mutable = "*"
+flake8-pytest = "*"
+mypy = "*"
+pylint = "*"
+pytest = "*"
+
+[tool.black]
+line-length = 79
+target-version = ['py310']
+skip-string-normalization = true
+
+[tool.isort]
+multi_line_output = 3
+line_length = 79
+include_trailing_comma = true
+
+[tool.mypy]
+cache_dir = "/dev/null"
+ignore_missing_imports = false
+python_version = "3.10"
+
+# equivalent to --strict except for the modifications above:
+disallow_untyped_calls = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+warn_redundant_casts = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_unused_configs = true
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "_pytest",
+]
+ignore_missing_imports = true
+
+[tool.pylint.basic]
+good-names="""
+    a,b,c,d,e,f,g,h,i,j,k,m,n,p,q,r,s,t,v,w,x,y,z,N,
+    at,cs,c1,c2,df,ex,fn,fs,ls,lq,nq,of,op,pk,pq,ts,xs,x0,x1,x2,ys,y0,y1,y2,
+    Run,_
+"""
+
+[tool.pylint.messages_control]
+disable = [
+    "missing-module-docstring",
+    "missing-class-docstring",
+    "missing-function-docstring",
+]
+
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
