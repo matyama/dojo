@@ -3,8 +3,8 @@ from operator import itemgetter
 from typing import Optional, Sequence
 
 from csp.inference import AC3, AC3Context
-from csp.model import Problem, Solution
-from csp.types import Assignment, Domain, Value, Var, Variable
+from csp.model import AssignCtx, Problem
+from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 # TODO: API features
 #  - MVP: bianry constraints
@@ -20,7 +20,7 @@ from csp.types import Assignment, Domain, Value, Var, Variable
 #    => indicate failure bu an empty Dict (?)
 
 
-def solve(csp: Problem[Variable, Value]) -> Optional[Assignment[Value]]:
+def solve(csp: Problem[Variable, Value]) -> Solution[Variable, Value]:
 
     consistent = partial(Problem[Variable, Value].consistent, csp)
     complete = partial(Problem[Variable, Value].complete, csp)
@@ -43,15 +43,15 @@ def solve(csp: Problem[Variable, Value]) -> Optional[Assignment[Value]]:
     inference_engine = AC3(csp)
 
     def backtracking_search(
-        solution: Solution[Value],
+        ctx: AssignCtx[Value],
         domains: Sequence[Domain[Value]],
     ) -> Optional[Assignment[Value]]:
 
-        if complete(solution.assignment):
-            return solution.assignment
+        if complete(ctx.assignment):
+            return ctx.assignment
 
-        var = next_var(solution.unassigned, domains)
-        solution.unassigned[var] = False
+        var = next_var(ctx.unassigned, domains)
+        ctx.unassigned[var] = False
 
         # TODO: sorted(domains(var), key=some_strategy)
         #  - or rather keep domains sorted => must also apply to inference
@@ -60,28 +60,32 @@ def solve(csp: Problem[Variable, Value]) -> Optional[Assignment[Value]]:
         for val in domains[var]:
 
             # Check if assignment var := val is consistent
-            if consistent(var, val, solution.assignment):
-                solution.assignment[var] = val
+            if consistent(var, val, ctx.assignment):
+                ctx.assignment[var] = val
 
                 # Infer feasible domains that are arc-consistent using AC3
-                ctx = AC3Context(
-                    value=val, domains=domains, unassigned=solution.unassigned
+                infer_ctx = AC3Context(
+                    value=val,
+                    domains=domains,
+                    unassigned=ctx.unassigned,
                 )
-                revised_domains = inference_engine.infer(var, ctx)
+                revised_domains = inference_engine.infer(var, infer_ctx)
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:
-                    assignment = backtracking_search(solution, revised_domains)
+                    assignment = backtracking_search(ctx, revised_domains)
                     if assignment is not None:
                         return assignment
 
-                del solution.assignment[var]
+                del ctx.assignment[var]
 
-        solution.unassigned[var] = True
+        ctx.unassigned[var] = True
         return None
 
     # Solve Sudoku CSP
-    return backtracking_search(
-        solution=csp.init(),
+    assignment = backtracking_search(
+        ctx=csp.init(),
         domains=csp.domains,
     )
+
+    return csp.as_solution(assignment) if assignment is not None else {}

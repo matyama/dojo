@@ -1,6 +1,6 @@
 from typing import Tuple
 
-from csp.model import Problem, Solution, Vars
+from csp.model import AssignCtx, Problem, Vars
 
 
 def test_model() -> None:
@@ -23,7 +23,7 @@ def test_model() -> None:
 
     s = csp.init()
 
-    assert s == Solution(assignment={y_i: 2}, unassigned=[True, False])
+    assert s == AssignCtx(assignment={y_i: 2}, unassigned=[True, False])
     assert not csp.complete(s.assignment)
 
     assert csp.consistent(x=x_i, x_val=1, a=s.assignment)

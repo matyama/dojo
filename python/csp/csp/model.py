@@ -6,7 +6,6 @@ from typing import (
     Iterable,
     List,
     Mapping,
-    Optional,
     Protocol,
     Sequence,
     Tuple,
@@ -14,7 +13,15 @@ from typing import (
 )
 
 from csp.constraints import BinConst, ConstSet, Different, LessEq
-from csp.types import Assignment, Domain, DomainSet, Value, Var, Variable
+from csp.types import (
+    Assignment,
+    Domain,
+    DomainSet,
+    Solution,
+    Value,
+    Var,
+    Variable,
+)
 
 
 class VarCombinator(Generic[Variable, Value]):
@@ -41,7 +48,7 @@ class VarCombinator(Generic[Variable, Value]):
 
 @dataclass(frozen=True)
 class Vars(Generic[Variable, Value]):
-    var_iter: Iterable[Tuple[Variable, Domain[Value]]]
+    var_iter: Iterable[Tuple[Variable, Domain[Value] | Iterable[Value]]]
 
 
 class Problem(Generic[Variable, Value]):
@@ -66,7 +73,7 @@ class Problem(Generic[Variable, Value]):
     # TODO: accept Const instances defined over Variable for convenience
     def __iadd__(
         self,
-        item: Tuple[Variable, Domain[Value]]
+        item: Tuple[Variable, Domain[Value] | Iterable[Value]]
         | Vars[Variable, Value]
         | BinConst[Variable, Value],
     ) -> "Problem[Variable, Value]":
@@ -75,11 +82,18 @@ class Problem(Generic[Variable, Value]):
         if isinstance(item, tuple):
             x, d = item
             assert x not in self._var_ids, f"x{x} already recorded"
+
+            # materialize domain if necessary
+            if isinstance(d, Iterable):
+                d = set(d)
+
             self._var_ids[x] = len(self._vars)
             self._vars.append(x)
             self._doms.append(d)
             self._consts.append({})
+
             assert len(self._consts) == len(self._vars)
+
         elif isinstance(item, Vars):
             for var_dom in item.var_iter:
                 self += var_dom
@@ -121,7 +135,7 @@ class Problem(Generic[Variable, Value]):
 
     # XXX: does Problem concern about Assignment?
     # TODO: extract outside => use `domains` property?
-    def init(self) -> "Solution[Value]":
+    def init(self) -> "AssignCtx[Value]":
         """
         Generate an initial assignment and an indicator of unassigned variables
         """
@@ -136,7 +150,10 @@ class Problem(Generic[Variable, Value]):
         #  - alternatively, this could be an array (fixed-size) ...from iter
         unassigned = [x not in assignment for x in self.iter_vars()]
 
-        return Solution(assignment, unassigned)
+        return AssignCtx(assignment, unassigned)
+
+    def as_solution(self, a: Assignment[Value]) -> Solution[Variable, Value]:
+        return {self.variable(x): v for x, v in a.items()}
 
     def complete(self, a: Assignment[Value]) -> bool:
         return len(a) == self.num_vars
@@ -173,7 +190,7 @@ class Assign(Generic[Value]):
 
 
 @dataclass
-class Solution(Generic[Value]):
+class AssignCtx(Generic[Value]):
     assignment: Assignment[Value]
     unassigned: List[bool]
 
@@ -187,16 +204,6 @@ class Model(Protocol, Generic[I_contra, S_co, Variable, Value]):
     def into_csp(self, instance: I_contra) -> Problem[Variable, Value]:
         raise NotImplementedError
 
-    # TODO: consider just Assignment = Dict[Variable, Value]
     @abstractmethod
-    def from_csp(
-        self, csp_solution: Assignment[Value], csp: Problem[Variable, Value]
-    ) -> S_co:
+    def from_csp(self, solution: Solution[Variable, Value]) -> S_co:
         raise NotImplementedError
-
-    def try_from_csp(
-        self,
-        solution: Optional[Assignment[Value]],
-        csp: Problem[Variable, Value],
-    ) -> Optional[S_co]:
-        return self.from_csp(solution, csp) if solution is not None else None

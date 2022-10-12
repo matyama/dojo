@@ -72,10 +72,7 @@ OrdValue = TypeVar("OrdValue", bound=Ord)
 Domain: TypeAlias = Set[Value]
 DomainSet: TypeAlias = List[Domain[Value]]
 
-# TODO: actually return a Solution: TypeAlias = Dict[Variable, Value]
-#  - or keep Problem instance in the "transformer" instance and do the mapping
-#    inside from_csp
-#    => avaids double conversion: Assignment => Solution => InstanceSolution
 Assignment: TypeAlias = Dict[Var, Value]
-# XXX: List[Optional[Value]] isn't quite convenient => not None checks
-# Assignment: TypeAlias = List[Optional[Value]]
+
+# An assignment but indexed by domain `Variable`s instead of internal `Var`s
+Solution: TypeAlias = Dict[Variable, Value]

@@ -2,7 +2,7 @@ from enum import Enum, auto
 from re import T
 from typing import Dict, List, TypeAlias
 
-from csp.model import Assignment, Model, Problem, Vars
+from csp.model import Model, Problem, Solution, Vars
 from csp.solver import solve
 
 
@@ -58,22 +58,18 @@ class Australia(Model[Map, Coloring, Territory, Color]):
 
         return csp
 
-    def from_csp(
-        self, csp_solution: Assignment[Color], csp: Problem[Territory, Color]
-    ) -> Coloring:
-        return {csp.variable(x): color for x, color in csp_solution.items()}
+    def from_csp(self, solution: Solution) -> Coloring:
+        return solution
 
 
 def test_coloring() -> None:
     australia = Australia()
     csp = australia.into_csp(instance=australia.MAP)
 
-    csp_solution = solve(csp)
+    coloring = solve(csp)
 
     # coloring Australia map with 3 colors should have a solution
-    assert csp_solution is not None
-
-    coloring = australia.from_csp(csp_solution, csp)
+    assert coloring
 
     # validate the coloring
     for t, ts in australia.MAP.items():

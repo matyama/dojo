@@ -1,7 +1,7 @@
 from itertools import combinations, product
-from typing import List, Tuple, TypeAlias
+from typing import Iterable, List, Tuple, TypeAlias
 
-from csp.model import Assignment, Domain, Model, Problem, Vars
+from csp.model import Domain, Model, Problem, Solution, Vars
 from csp.solver import solve
 
 
@@ -35,11 +35,11 @@ def test_sudoku() -> None:
     csp = sudoku.into_csp(puzzle)
 
     # Solve Sudoku CSP
-    csp_solution = solve(csp)
+    solution = solve(csp)
 
-    actual = sudoku.try_from_csp(csp_solution, csp)
-    assert actual is not None
-    assert sudoku.valid(actual)
+    board = sudoku.from_csp(solution)
+
+    assert sudoku.valid(board)
     # assert expected == actual
 
 
@@ -69,8 +69,8 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
         return True
 
     @classmethod
-    def domain(cls, val: int) -> Domain[Digit]:
-        return {val} if val > 0 else set(range(1, cls.N + 1))
+    def domain(cls, val: int) -> Domain[Digit] | Iterable[Digit]:
+        return {val} if val > 0 else range(1, cls.N + 1)
 
     def into_csp(self, instance: SudokuBoard) -> Problem[Cell, Digit]:
         assert len(instance) == self.N
@@ -112,14 +112,11 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
 
         return csp
 
-    def from_csp(
-        self, csp_solution: Assignment[Digit], csp: Problem[Cell, Digit]
-    ) -> SudokuBoard:
-        solution = [[0] * self.N] * self.N
+    def from_csp(self, solution: Solution[Cell, Digit]) -> SudokuBoard:
+        board = [[0] * self.N] * self.N
 
         # Fill the board from the final solution
-        for x, val in csp_solution.items():
-            row, col = csp.variable(x)
-            solution[row][col] = val
+        for (row, col), val in solution.items():
+            board[row][col] = val
 
-        return solution
+        return board
