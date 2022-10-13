@@ -1,9 +1,10 @@
 import operator
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Callable, Generic, List, Protocol, Tuple
 
-from csp.types import Arc, Ord, Value, Variable
+from csp.types import Arc, NumValue, Ord, OrdValue, Value, Variable
 
 
 class BinConst(Protocol, Generic[Variable, Value]):
@@ -46,10 +47,6 @@ class BinConst(Protocol, Generic[Variable, Value]):
         return composite
 
 
-# TODO: cs list duplicates (x, y) => could be just sat callables
-#  => `vars` are necessary in (csp +=) to index/find C(x, y)
-#  => this could be just an internall accumulator and not part of public API
-#     (i.e. `csp += const_set` would not be allowed)
 @dataclass
 class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
     x: Variable
@@ -180,46 +177,50 @@ class GreaterThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
 # class GreaterThan(Generic[Value], PredicateConst[Value]):
 #    pred: Callable[[Value, Value], bool] = operator.gt
 #    op: str = ">"
-#
-
-# TODO: Value must be Num (Add, Sub, Mul, Div)
-#
-# class LinEq(Generic[Value], PredicateConst]Value):
-#
-#    def __init__(self, x: Var, y: Var, a: Value, b: Value, c: Value) -> None:
-#        def linear(x: Value, y: Value) -> bool:
-#            return a * x + b * y + c == 0
-#
-#        # FIXME: PredicateConst only supports infix position
-#        op = ""
-#        super().__init__(x, y, pred=linear, op=op)
 
 
-# XXX
-#  - Linear: HalfPlane (<, <=, >=, >), Line (==), ExcludeLine/Separation (!=)
-# class Space2D(Enum):
-#    HalfPlane = "< | <= | >= | >"
-#    Line = "== (boundary=True) | != (boundary=False)"
-#    # Separation = "!="
+class Space2D(Enum):
+    LINE = "=", operator.eq
+    SPLIT = "!=", operator.ne
+    LOWER_OPEN = "<", operator.lt
+    LOWER_CLOSED = "<=", operator.le
+    UPPER_CLOSED = ">=", operator.ge
+    UPPER_OPEN = ">", operator.gt
 
-# XXX Value => Numeric: Eq, Ord, Add, Sub, Mul, Div, Neg, [Zero, One]
-# @dataclass(frozen=True)
-# class Linear(BinConst[Variable, Value]):
-#    a: Value
-#    x: Variable
-#    b: Value
-#    y: Variable
-#    c: Value
-#    boundary: bool = True
-#
-#    @property
-#    def vars(self) -> Tuple[str, str]:
-#        return self.x, self.y
-#
-#    def _sat(self, x_val: int, y_val: int) -> bool:
-#        line = self.a * x_val + self.b * y_val
-#        return line >= self.c if self.boundary else line > self.c
-#
-#    def __str__(self) -> str:
-#        op = ">=" if self.boundary else ">"
-#        return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"
+
+@dataclass(frozen=True)
+class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
+    """
+    Defines a 2D sub-space by a line `a*x + b*y = c`.
+
+    The part of planar space is determined by `space` as:
+     - Line: `==` (default)
+     - Split: `!=`
+     - Half-plane:
+       - Lower: `<` (open) or `<=` (closed)
+       - Upper: `>` (open) or `>=` (closed)
+    """
+
+    a: NumValue
+    x: Variable
+    b: NumValue
+    y: Variable
+    c: NumValue
+    space: Space2D = Space2D.LINE
+
+    @property
+    def vars(self) -> Tuple[Variable, Variable]:
+        return self.x, self.y
+
+    def _sat(self, x_val: NumValue, y_val: NumValue) -> bool:
+        # XXX: better would be to have the defining line as
+        #      a*x + b*y + c = 0 ...but then `pred` would need to take a 0
+        line = self.a * x_val + self.b * y_val
+        _, pred = self.space.value
+        # NOTE: cast should be sould by the definition of Ord, Num and Space2D
+        p: Callable[[OrdValue, OrdValue], bool] = pred
+        return p(line, self.c)
+
+    def __str__(self) -> str:
+        op, _ = self.space.value
+        return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"

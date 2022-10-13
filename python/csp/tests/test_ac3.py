@@ -1,54 +1,11 @@
-from dataclasses import dataclass
-from typing import Optional, Tuple
+from typing import Optional
 
 import pytest
 
-from csp.constraints import BinConst
+from csp.constraints import Linear, Space2D
 from csp.inference import AC3, revise
 from csp.model import CSP, Assign
 from csp.types import DomainSet
-
-
-# TODO: possibly move to constraints (with generic vars/vals)
-#  - generalize boundary => operator (<, <=, >, >=, ==, !=) => Enum?
-#  - Linear: HalfPlane (<, <=, >=, >), Line (==), ExcludeLine/Separation (!=)
-@dataclass(frozen=True)
-class HalfPlane(BinConst[str, int]):
-    x: str
-    y: str
-    a: int = 1
-    b: int = 1
-    c: int = 0
-    boundary: bool = True
-
-    @property
-    def vars(self) -> Tuple[str, str]:
-        return self.x, self.y
-
-    def _sat(self, x_val: int, y_val: int) -> bool:
-        line = self.a * x_val + self.b * y_val
-        return line >= self.c if self.boundary else line > self.c
-
-    def __str__(self) -> str:
-        op = ">=" if self.boundary else ">"
-        return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"
-
-
-@dataclass(frozen=True)
-class Shifted(BinConst[str, int]):
-    x: str
-    y: str
-    s: int
-
-    @property
-    def vars(self) -> Tuple[str, str]:
-        return self.x, self.y
-
-    def _sat(self, x_val: int, y_val: int) -> bool:
-        return x_val + self.s == y_val
-
-    def __str__(self) -> str:
-        return f"{self.x} + {self.s} = {self.y}"
 
 
 @pytest.fixture(name="a")
@@ -62,7 +19,8 @@ def csp_a() -> CSP[str, int]:
     csp[x3] = {2, 3}
 
     csp += x1 > x2
-    csp += (x2 != x3) & HalfPlane(x2.var, x3.var, c=4, boundary=False)
+    csp += x2 != x3
+    csp += Linear(a=1, x=x2.var, b=1, y=x3.var, c=4, space=Space2D.UPPER_OPEN)
 
     return csp
 
@@ -77,7 +35,8 @@ def csp_b() -> CSP[str, int]:
     csp[x3] = {1, 2, 3}
 
     csp += x1 == x2
-    csp += Shifted(x=x2.var, y=x3.var, s=1)
+    # shift: x + 1 = y
+    csp += Linear(a=1, x=x2.var, b=-1, y=x3.var, c=-1)
 
     return csp
 

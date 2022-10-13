@@ -51,6 +51,17 @@ class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
     """Marker protocol for types that are Eq + Hashable"""
 
 
+NumSelf = TypeVar("NumSelf", bound="Num")
+
+# XXX: Sub, Div, Neg, [Zero, One]
+class Num(Ord, Protocol):
+    def __add__(self: NumSelf, rhs: NumSelf) -> NumSelf:
+        raise NotImplementedError
+
+    def __mul__(self: NumSelf, rhs: NumSelf) -> NumSelf:
+        raise NotImplementedError
+
+
 # XXX: consider using NewType instead of just TypeAlias
 Var: TypeAlias = int
 Variable = TypeVar("Variable", bound=Hash)
@@ -59,9 +70,8 @@ Arc: TypeAlias = Tuple[Variable, Variable]
 VarArc: TypeAlias = Tuple[Var, Var]
 
 Value = TypeVar("Value")
-# NOTE: dont't enforce bound here => check dynamically in constraints
-# Value = TypeVar("Value", bound=Ord)
-# OrdValue = TypeVar("OrdValue", bound=Ord)
+OrdValue = TypeVar("OrdValue", bound=Ord)
+NumValue = TypeVar("NumValue", bound=Num)
 
 # TODO: some compact repr for domains => protocol
 #  - e.g. D = {0..n} could be represented compactly as `range(n)`

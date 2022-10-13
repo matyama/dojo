@@ -1,31 +1,12 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from csp.model import CSP, BinConst
+from csp.constraints import Linear, Space2D
+from csp.model import CSP
 from csp.solver import solve
 
 
-# TODO: replace by a generalized linear constraint
-@dataclass(frozen=True)
-class Linear(BinConst[str, int]):
-    """C_a(x, y) iff a*x = y"""
-
-    a: int
-    x: str
-    y: str
-
-    @property
-    def vars(self) -> Tuple[str, str]:
-        return self.x, self.y
-
-    def _sat(self, x_val: int, y_val: int) -> bool:
-        return self.a * x_val == y_val
-
-    def __str__(self) -> str:
-        return f"{self.a}*{self.x} = {self.y}"
-
-
-def test_custom_constraint() -> None:
+def test_linear_constraint() -> None:
     csp = CSP[str, int]()
 
     x, y = "x", "y"
@@ -33,7 +14,9 @@ def test_custom_constraint() -> None:
     csp += x, {1, 2, 3}
     csp += y, {4, 5, 6}
 
-    csp += Linear(2, x, y)
+    # line: 2x = y
+    csp += Linear(a=2, x=x, b=-1, y=y, c=0)
 
+    # TODO: `solve(csp, exhaustive=True)` => keep searching
     assignment = solve(csp)
     assert assignment in [{x: 2, y: 4}, {x: 3, y: 6}]
