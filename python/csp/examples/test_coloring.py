@@ -2,7 +2,7 @@ from enum import Enum, auto
 from re import T
 from typing import Dict, List, TypeAlias
 
-from csp.model import Model, Problem, Solution, Vars
+from csp.model import CSP, Model, Solution
 from csp.solver import solve
 
 
@@ -43,18 +43,16 @@ class Australia(Model[Map, Coloring, Territory, Color]):
         Territory.T: [],
     }
 
-    def into_csp(self, instance: Map) -> Problem[Territory, Color]:
-
-        csp: Problem[Territory, Color] = Problem()
+    def into_csp(self, instance: Map) -> CSP[Territory, Color]:
+        csp = CSP[Territory, Color]()
 
         # Variable = Territory
-        csp += Vars((t, set(Color)) for t in instance)
+        csp += ((t, set(Color)) for t in instance)
 
         # Constraints: territory != neighbor
         for t, ts in instance.items():
-            x = csp.var_comb(x=t)
-            for y in map(csp.var_comb, ts):
-                csp += x != y
+            for n in ts:
+                csp += csp[t] != csp[n]
 
         return csp
 

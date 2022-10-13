@@ -1,7 +1,7 @@
 from itertools import combinations, product
 from typing import Iterable, List, Tuple, TypeAlias
 
-from csp.model import Domain, Model, Problem, Solution, Vars
+from csp.model import CSP, Domain, Model, Solution
 from csp.solver import solve
 
 
@@ -72,14 +72,14 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
     def domain(cls, val: int) -> Domain[Digit] | Iterable[Digit]:
         return {val} if val > 0 else range(1, cls.N + 1)
 
-    def into_csp(self, instance: SudokuBoard) -> Problem[Cell, Digit]:
+    def into_csp(self, instance: SudokuBoard) -> CSP[Cell, Digit]:
         assert len(instance) == self.N
         assert len(instance[0]) == self.N
 
-        csp: Problem[Cell, Digit] = Problem()
+        csp = CSP[Cell, Digit]()
 
         # Domains for all variables (positions on the board)
-        csp += Vars(
+        csp += (
             ((row, col), self.domain(val))
             for row, vals in enumerate(instance)
             for col, val in enumerate(vals)
@@ -89,25 +89,21 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
         for i in range(self.N):
 
             # Values in each row must all be different
-            row_vars = ((i, col) for col in range(self.N))
-            for v_x, v_y in combinations(row_vars, 2):
-                # TODO: cache vars above {Variable: Var}
-                x, y = csp.var_comb(v_x), csp.var_comb(v_y)
+            row_vars = (csp[(i, col)] for col in range(self.N))
+            for x, y in combinations(row_vars, 2):
                 csp += x != y
 
             # Values in each column must all be different
-            col_vars = ((row, i) for row in range(self.N))
-            for v_x, v_y in combinations(col_vars, 2):
-                x, y = csp.var_comb(v_x), csp.var_comb(v_y)
+            col_vars = (csp[(row, i)] for row in range(self.N))
+            for x, y in combinations(col_vars, 2):
                 csp += x != y
 
         # Values in each 3x3 square must all be different
         for i, j in product(range(0, self.N, 3), repeat=2):
             block = (
-                (i + row, j + col) for row in range(3) for col in range(3)
+                csp[(i + row, j + col)] for row in range(3) for col in range(3)
             )
-            for v_x, v_y in combinations(block, 2):
-                x, y = csp.var_comb(v_x), csp.var_comb(v_y)
+            for x, y in combinations(block, 2):
                 csp += x != y
 
         return csp

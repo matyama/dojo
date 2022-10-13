@@ -11,7 +11,7 @@ from typing import (
 )
 
 from csp.constraints import BinConst
-from csp.model import Assign, Problem
+from csp.model import CSP, Assign
 from csp.types import (
     Arc,
     Domain,
@@ -74,7 +74,7 @@ AC3Context: TypeAlias = Sequence[Domain[Value]]
 class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
     # XXX: consider making consts and vars args
     #  => indicate that domains won't be used (should be passed to __call__)
-    def __init__(self, csp: Problem[Variable, Value]) -> None:
+    def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._consts = csp.consts
         self._vars = csp.variables
 

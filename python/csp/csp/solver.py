@@ -3,7 +3,7 @@ from operator import itemgetter
 from typing import Optional, Sequence
 
 from csp.inference import AC3
-from csp.model import Assign, AssignCtx, Problem
+from csp.model import CSP, Assign, AssignCtx
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 # TODO: API features
@@ -21,10 +21,10 @@ from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 #    => indicate failure bu an empty Dict (?)
 
 
-def solve(csp: Problem[Variable, Value]) -> Solution[Variable, Value]:
+def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
-    consistent = partial(Problem[Variable, Value].consistent, csp)
-    complete = partial(Problem[Variable, Value].complete, csp)
+    consistent = partial(CSP[Variable, Value].consistent, csp)
+    complete = partial(CSP[Variable, Value].complete, csp)
 
     snd: itemgetter[int] = itemgetter(1)
 

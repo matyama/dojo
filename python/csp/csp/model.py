@@ -10,6 +10,7 @@ from typing import (
     Protocol,
     Sequence,
     Tuple,
+    TypeAlias,
     TypeVar,
 )
 
@@ -28,7 +29,6 @@ from csp.types import (
     Assignment,
     Domain,
     DomainSet,
-    HasVar,
     Solution,
     Value,
     Var,
@@ -36,57 +36,48 @@ from csp.types import (
 )
 
 
-# TODO: refactor => move to constraints & rename to ConstBuilder / VarBinder
-class VarCombinator(Generic[Variable, Value], HasVar[Variable]):
-    _var: Variable
+class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
+    """Variable wrapper capable of binding into `BinConst`"""
 
-    def __init__(self, x: Variable) -> None:
-        self._var = x
+    __match_args__ = ("var",)
 
-    @property
-    def var(self) -> Variable:
-        return self._var
+    var: Variable
+
+    def __init__(self, var: Variable) -> None:
+        self.var = var
 
     def __eq__(self, y: object) -> Same[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)
-        return Same(x=self._var, y=y._var)
+        return Same(x=self.var, y=y.var)
 
     def __ne__(self, y: object) -> Different[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)
-        return Different(x=self._var, y=y._var)
+        return Different(x=self.var, y=y.var)
 
     # TODO: could accept VarCombinator | Variable
     # XXX: this combinator should only be available to OrdValue
     #  - check dynamically => somehow reveal LessEq[OrdValue]
     #  - assert statically => probably requires splitting VarCombinator
     #  - NOTE: CSP instance always has _single_ concrete Value
-    def __le__(
-        self, y: "VarCombinator[Variable, Value]"
-    ) -> LessEq[Variable, Value]:
-        return LessEq(x=self._var, y=y._var)
+    def __le__(self, y: "X[Variable, Value]") -> LessEq[Variable, Value]:
+        return LessEq(x=self.var, y=y.var)
 
-    def __lt__(
-        self, y: "VarCombinator[Variable, Value]"
-    ) -> LessThan[Variable, Value]:
-        return LessThan(x=self._var, y=y._var)
+    def __lt__(self, y: "X[Variable, Value]") -> LessThan[Variable, Value]:
+        return LessThan(x=self.var, y=y.var)
 
-    def __ge__(
-        self, y: "VarCombinator[Variable, Value]"
-    ) -> GreaterEq[Variable, Value]:
-        return GreaterEq(x=self._var, y=y._var)
+    def __ge__(self, y: "X[Variable, Value]") -> GreaterEq[Variable, Value]:
+        return GreaterEq(x=self.var, y=y.var)
 
-    def __gt__(
-        self, y: "VarCombinator[Variable, Value]"
-    ) -> GreaterThan[Variable, Value]:
-        return GreaterThan(x=self._var, y=y._var)
+    def __gt__(self, y: "X[Variable, Value]") -> GreaterThan[Variable, Value]:
+        return GreaterThan(x=self.var, y=y.var)
 
 
-@dataclass(frozen=True)
-class Vars(Generic[Variable, Value]):
-    var_iter: Iterable[Tuple[Variable, Domain[Value] | Iterable[Value]]]
+VarDom: TypeAlias = Tuple[
+    Variable | X[Variable, Value], Domain[Value] | Iterable[Value]
+]
 
 
-class Problem(Generic[Variable, Value]):
+class CSP(Generic[Variable, Value]):
     """CSP problem instance builder"""
 
     _var_ids: Dict[Variable, Var]
@@ -105,21 +96,23 @@ class Problem(Generic[Variable, Value]):
     #    const
     #  - accept initial assignment => trivial unary constraint
 
-    # TODO: accept Const instances defined over Variable for convenience
     def __iadd__(
         self,
-        item: Tuple[Variable, Domain[Value] | Iterable[Value]]
-        | Vars[Variable, Value]
+        item: VarDom[Variable, Value]
+        | Iterable[VarDom[Variable, Value]]
         | BinConst[Variable, Value],
-    ) -> "Problem[Variable, Value]":
-        # TODO: use `match item`: case (x, d) ..case Vars(var_iter) ..case c
-        #  - mypy seems to have an issue parsing this match => crash
+    ) -> "CSP[Variable, Value]":
+        # NOTE: mypy had an issue parsing a `match` version of this if-chain`
         if isinstance(item, tuple):
             x, d = item
+
+            if isinstance(x, X):
+                x = x.var
+
             assert x not in self._var_ids, f"x{x} already recorded"
 
             # materialize domain if necessary
-            if isinstance(d, Iterable):
+            if not isinstance(d, set):
                 d = set(d)
 
             self._var_ids[x] = len(self._vars)
@@ -129,13 +122,15 @@ class Problem(Generic[Variable, Value]):
 
             assert len(self._consts) == len(self._vars)
 
-        elif isinstance(item, Vars):
-            for var_dom in item.var_iter:
+        elif isinstance(item, Iterable):
+            for var_dom in item:
                 self += var_dom
         else:
             var_a, var_b = item.vars  # type: Tuple[Variable, Variable]
             # NOTE: asserts that a, b have been registered before
             a, b = self.var(var_a), self.var(var_b)
+            # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
+            # pylint: disable=invalid-sequence-index
             acc = self._consts[a].get(b, ConstSet(var_a, var_b))
             acc &= item
             self._consts[a][b] = acc
@@ -159,27 +154,41 @@ class Problem(Generic[Variable, Value]):
     def consts(self) -> Sequence[Mapping[Var, ConstSet[Variable, Value]]]:
         return self._consts
 
+    # XXX: used only in tests
+    # TODO: could used slicing operator => csp[x:y] ...or use it for `arc`
     def const(
         self, x: Variable, y: Variable
     ) -> Optional[BinConst[Variable, Value]]:
         var_x, var_y = self.var(x), self.var(y)
+        # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
+        # pylint: disable=invalid-sequence-index
         return self._consts[var_x].get(var_y)
 
     def arc(self, x: Var, y: Var) -> Arc[Variable]:
         return self._vars[x], self._vars[y]
 
+    def __getitem__(self, x: Variable) -> X[Variable, Value]:
+        """Create new `Variable` wrapper `X` and bind the `Value` type to it"""
+        return X(var=x)
+
+    def __setitem__(
+        self,
+        x: Variable | X[Variable, Value],
+        d: Domain[Value] | Iterable[Value],
+    ) -> None:
+        """Alterative syntax for `csp += x, d`"""
+        self += x, d
+
     # XXX: might not be necessary anymorea or used just internally for Assign.
     def variable(self, i: Var) -> Variable:
         return self._vars[i]
 
-    # FIXME: deprecated => it just renames the constructor
-    #  - possibly global `def x(var: Variable)` or something like that
-    #  - one issue is that `self` here is a witness of `Value`
-    def var_comb(self, x: Variable) -> VarCombinator[Variable, Value]:
-        return VarCombinator(x)
-
-    def var(self, x: Variable) -> Var:
-        return self._var_ids[x]
+    def var(self, x: Variable | X[Variable, Value]) -> Var:
+        match x:
+            case X(var):
+                return self._var_ids[var]
+            case var:
+                return self._var_ids[var]
 
     def iter_vars(self) -> Iterable[Var]:
         return range(len(self._vars))
@@ -252,7 +261,7 @@ S_co = TypeVar("S_co", covariant=True)
 
 class Model(Protocol, Generic[I_contra, S_co, Variable, Value]):
     @abstractmethod
-    def into_csp(self, instance: I_contra) -> Problem[Variable, Value]:
+    def into_csp(self, instance: I_contra) -> CSP[Variable, Value]:
         raise NotImplementedError
 
     @abstractmethod

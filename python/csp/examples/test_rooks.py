@@ -1,8 +1,9 @@
+from itertools import combinations
 from typing import List, TypeAlias
 
 import pytest
 
-from csp.model import Model, Problem, Solution, Vars
+from csp.model import CSP, Model, Solution
 from csp.solver import solve
 
 # Rook = column
@@ -13,18 +14,16 @@ Positions: TypeAlias = List[Row]
 
 
 class Rooks(Model[BoardSize, Positions, Rook, Row]):
-    def into_csp(self, instance: BoardSize) -> Problem[Rook, Row]:
+    def into_csp(self, instance: BoardSize) -> CSP[Rook, Row]:
+        csp = CSP[Rook, Row]()
 
-        csp: Problem[Rook, Row] = Problem()
+        xs = [csp[rook] for rook in range(instance)]
+        ds = [range(instance)] * instance
 
-        csp += Vars((rook, range(instance)) for rook in range(instance))
+        csp += zip(xs, ds)
 
-        for col_x in range(instance):
-            x = csp.var_comb(col_x)
-            for col_y in range(instance):
-                if col_x < col_y:
-                    y = csp.var_comb(col_y)
-                    csp += x != y
+        for x, y in combinations(xs, 2):
+            csp += x != y
 
         return csp
 

@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Tuple
 
-from csp.model import BinConst, Problem
+from csp.model import CSP, BinConst
 from csp.solver import solve
 
 
@@ -26,12 +26,12 @@ class Linear(BinConst[str, int]):
 
 
 def test_custom_constraint() -> None:
-    csp: Problem[str, int] = Problem()
+    csp = CSP[str, int]()
 
     x, y = "x", "y"
 
-    csp += (x, {1, 2, 3})
-    csp += (y, {4, 5, 6})
+    csp += x, {1, 2, 3}
+    csp += y, {4, 5, 6}
 
     csp += Linear(2, x, y)
 

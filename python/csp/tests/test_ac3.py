@@ -5,7 +5,7 @@ import pytest
 
 from csp.constraints import BinConst
 from csp.inference import AC3, revise
-from csp.model import Assign, Problem, VarCombinator
+from csp.model import CSP, Assign
 from csp.types import DomainSet
 
 
@@ -52,16 +52,14 @@ class Shifted(BinConst[str, int]):
 
 
 @pytest.fixture(name="a")
-def csp_a() -> Problem[str, int]:
-    csp: Problem[str, int] = Problem()
+def csp_a() -> CSP[str, int]:
+    csp = CSP[str, int]()
 
-    x1: VarCombinator[str, int] = VarCombinator("x1")
-    x2: VarCombinator[str, int] = VarCombinator("x2")
-    x3: VarCombinator[str, int] = VarCombinator("x3")
+    x1, x2, x3 = csp["x1"], csp["x2"], csp["x3"]
 
-    csp += (x1.var, {1, 2, 3})
-    csp += (x2.var, {1, 2, 3})
-    csp += (x3.var, {2, 3})
+    csp[x1] = {1, 2, 3}
+    csp[x2] = {1, 2, 3}
+    csp[x3] = {2, 3}
 
     csp += x1 > x2
     csp += (x2 != x3) & HalfPlane(x2.var, x3.var, c=4, boundary=False)
@@ -70,16 +68,13 @@ def csp_a() -> Problem[str, int]:
 
 
 @pytest.fixture(name="b")
-def csp_b() -> Problem[str, int]:
-    csp: Problem[str, int] = Problem()
+def csp_b() -> CSP[str, int]:
+    csp = CSP[str, int]()
 
-    x1: VarCombinator[str, int] = VarCombinator("x1")
-    x2: VarCombinator[str, int] = VarCombinator("x2")
-    x3: VarCombinator[str, int] = VarCombinator("x3")
-
-    csp += (x1.var, {1, 2, 3})
-    csp += (x2.var, {1, 2, 3})
-    csp += (x3.var, {1, 2, 3})
+    x1, x2, x3 = csp["x1"], csp["x2"], csp["x3"]
+    csp[x1] = {1, 2, 3}
+    csp[x2] = {1, 2, 3}
+    csp[x3] = {1, 2, 3}
 
     csp += x1 == x2
     csp += Shifted(x=x2.var, y=x3.var, s=1)
@@ -90,14 +85,14 @@ def csp_b() -> Problem[str, int]:
 @pytest.fixture
 def instance(
     request: pytest.FixtureRequest,
-    a: Problem[str, int],
-    b: Problem[str, int],
-) -> Problem[str, int]:
+    a: CSP[str, int],
+    b: CSP[str, int],
+) -> CSP[str, int]:
     instances = {"a": a, "b": b}
     return instances[request.param]
 
 
-def test_revise(a: Problem[str, int]) -> None:
+def test_revise(a: CSP[str, int]) -> None:
 
     x1, x2, x3 = a.variables
     d_x1, d_x2, d_x3 = a.domains
@@ -134,7 +129,7 @@ def test_revise(a: Problem[str, int]) -> None:
     indirect=["instance"],
 )
 def test_ac3(
-    instance: Problem[str, int], expected: Optional[DomainSet[int]]
+    instance: CSP[str, int], expected: Optional[DomainSet[int]]
 ) -> None:
     ac3 = AC3(csp=instance)
     revised_domains = ac3(arcs=ac3.arc_iter, domains=instance.domains)
@@ -149,7 +144,7 @@ def test_ac3(
     ],
 )
 def test_infer(
-    x: str, v: int, expected: Optional[DomainSet[int]], a: Problem[str, int]
+    x: str, v: int, expected: Optional[DomainSet[int]], a: CSP[str, int]
 ) -> None:
     actual = AC3(a).infer(assign=Assign(var=a.var(x), val=v), ctx=a.domains)
     assert expected == actual

@@ -51,26 +51,17 @@ class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
     """Marker protocol for types that are Eq + Hashable"""
 
 
-# XXX: consider using NewType instead of just TypeAlias => need consts[var] tho
+# XXX: consider using NewType instead of just TypeAlias
 Var: TypeAlias = int
 Variable = TypeVar("Variable", bound=Hash)
-Variable_co = TypeVar("Variable_co", bound=Hash, covariant=True)
 
 Arc: TypeAlias = Tuple[Variable, Variable]
 VarArc: TypeAlias = Tuple[Var, Var]
 
-# pylint: disable=too-few-public-methods
-class HasVar(Protocol, Generic[Variable_co]):
-    @property
-    @abstractmethod
-    def var(self) -> Variable_co:
-        raise NotImplementedError
-
-
 Value = TypeVar("Value")
 # NOTE: dont't enforce bound here => check dynamically in constraints
 # Value = TypeVar("Value", bound=Ord)
-OrdValue = TypeVar("OrdValue", bound=Ord)
+# OrdValue = TypeVar("OrdValue", bound=Ord)
 
 # TODO: some compact repr for domains => protocol
 #  - e.g. D = {0..n} could be represented compactly as `range(n)`
