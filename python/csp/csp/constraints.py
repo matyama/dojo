@@ -1,9 +1,10 @@
 import operator
 from abc import abstractmethod
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Callable, Generic, List, Protocol, Tuple
 
-from csp.types import Ord, Value, Variable
+from csp.types import Arc, Ord, Value, Variable
 
 
 class BinConst(Protocol, Generic[Variable, Value]):
@@ -16,13 +17,22 @@ class BinConst(Protocol, Generic[Variable, Value]):
         raise NotImplementedError
 
     @abstractmethod
-    def sat(self, x_val: Value, y_val: Value) -> bool:
+    def _sat(self, x_val: Value, y_val: Value) -> bool:
         """Returns True iff x := x_val is consistent with y := y_val"""
         raise NotImplementedError
 
     @abstractmethod
     def __str__(self) -> str:
         raise NotImplementedError
+
+    def __call__(self, arc: Arc[Variable], x_val: Value, y_val: Value) -> bool:
+        """Same as `sat` but automatically swaps values based on `arc`"""
+        # NOTE: apply values in order given by the arc (asymmetric contraints)
+        return (
+            self._sat(x_val, y_val)
+            if arc == self.vars
+            else self._sat(y_val, x_val)
+        )
 
     # TODO: try to override `and` to get DSL like `c = c1 and c2`
     #  - `and` works only on bool values, and with refs
@@ -54,8 +64,8 @@ class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
     def vars(self) -> Tuple[Variable, Variable]:
         return self.x, self.y
 
-    def sat(self, x_val: Value, y_val: Value) -> bool:
-        return all(c.sat(x_val, y_val) for c in self.cs)
+    def _sat(self, x_val: Value, y_val: Value) -> bool:
+        return all(c._sat(x_val, y_val) for c in self.cs)
 
     def __str__(self) -> str:
         return " & ".join(s for c in self.cs if (s := str(c)))
@@ -85,7 +95,7 @@ class PredicateConst(Generic[Variable, Value], BinConst[Variable, Value]):
     def vars(self) -> Tuple[Variable, Variable]:
         return self.x, self.y
 
-    def sat(self, x_val: Value, y_val: Value) -> bool:
+    def _sat(self, x_val: Value, y_val: Value) -> bool:
         return self.pred(x_val, y_val)
 
     def __str__(self) -> str:
@@ -107,6 +117,7 @@ class Different(
     op: str = "!="
 
 
+# pylint: disable=too-few-public-methods
 class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
     def __init__(self, x: Variable, y: Variable) -> None:
         def pred(x: Value, y: Value) -> bool:
@@ -116,6 +127,36 @@ class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
             return x <= y
 
         super().__init__(x, y, pred, op="<=")
+
+
+# pylint: disable=too-few-public-methods
+class LessThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
+    def __init__(self, x: Variable, y: Variable) -> None:
+        def pred(x: Value, y: Value) -> bool:
+            assert isinstance(x, Ord) and isinstance(y, Ord)
+            return x < y
+
+        super().__init__(x, y, pred, op="<")
+
+
+# pylint: disable=too-few-public-methods
+class GreaterEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
+    def __init__(self, x: Variable, y: Variable) -> None:
+        def pred(x: Value, y: Value) -> bool:
+            assert isinstance(x, Ord) and isinstance(y, Ord)
+            return x >= y
+
+        super().__init__(x, y, pred, op=">=")
+
+
+# pylint: disable=too-few-public-methods
+class GreaterThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
+    def __init__(self, x: Variable, y: Variable) -> None:
+        def pred(x: Value, y: Value) -> bool:
+            assert isinstance(x, Ord) and isinstance(y, Ord)
+            return x > y
+
+        super().__init__(x, y, pred, op=">")
 
 
 # @dataclass(frozen=True)
@@ -153,3 +194,33 @@ class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
 #        # FIXME: PredicateConst only supports infix position
 #        op = ""
 #        super().__init__(x, y, pred=linear, op=op)
+
+
+# XXX
+#  - Linear: HalfPlane (<, <=, >=, >), Line (==), ExcludeLine/Separation (!=)
+# class Space2D(Enum):
+#    HalfPlane = "< | <= | >= | >"
+#    Line = "== (boundary=True) | != (boundary=False)"
+#    # Separation = "!="
+
+# XXX Value => Numeric: Eq, Ord, Add, Sub, Mul, Div, Neg, [Zero, One]
+# @dataclass(frozen=True)
+# class Linear(BinConst[Variable, Value]):
+#    a: Value
+#    x: Variable
+#    b: Value
+#    y: Variable
+#    c: Value
+#    boundary: bool = True
+#
+#    @property
+#    def vars(self) -> Tuple[str, str]:
+#        return self.x, self.y
+#
+#    def _sat(self, x_val: int, y_val: int) -> bool:
+#        line = self.a * x_val + self.b * y_val
+#        return line >= self.c if self.boundary else line > self.c
+#
+#    def __str__(self) -> str:
+#        op = ">=" if self.boundary else ">"
+#        return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"

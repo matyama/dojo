@@ -1,11 +1,19 @@
 from abc import abstractmethod
 from collections import deque
 from dataclasses import dataclass
-from typing import Generic, Optional, Protocol, Sequence, TypeVar
+from typing import (
+    Generic,
+    Iterable,
+    Optional,
+    Protocol,
+    Sequence,
+    Tuple,
+    TypeVar,
+)
 
 from csp.constraints import BinConst
 from csp.model import Assign, Problem
-from csp.types import Domain, DomainSet, Value, Var, Variable
+from csp.types import Arc, Domain, DomainSet, Value, Var, Variable
 
 C_contra = TypeVar("C_contra", contravariant=True)
 
@@ -15,6 +23,35 @@ class Inference(Protocol, Generic[C_contra, Value]):  # pylint: disable=R0903
     @abstractmethod
     def infer(self, var: Var, ctx: C_contra) -> Optional[DomainSet[Value]]:
         raise NotImplementedError
+
+
+def revise(
+    arc: Arc[Variable],
+    domain_x: Domain[Value],
+    domain_y: Domain[Value],
+    const_xy: BinConst[Variable, Value],
+) -> bool:
+    """
+    Procedure that deletes any value from `domain_x` which is inconsistent
+    with values from `domain_y` under constraints represented by `const_xy`.
+
+    Returns: True iff `domain_x` has been changed.
+    Complexity: O(d^2) where d is the max domain size
+
+    WARN: If a call to `revise` returns True, the contents of `domain_x` has
+    been modified (some entries were removed). Otherwise, it's kept unchanged.
+
+    Note: All binary constraints should be combined into one composed
+    constraint - see `CompositeConst`.
+    """
+    deleted = False
+    # XXX: list -> another shallow copy, and called inside `while queue`
+    for x_val in list(domain_x):
+        # Ban x_val if there's no possible y_val consistent with const_xy
+        if all(not const_xy(arc, x_val, y_val) for y_val in domain_y):
+            domain_x.remove(x_val)
+            deleted = True
+    return deleted
 
 
 # TODO: it's not clear wheter to include value or make the assumption that
@@ -35,34 +72,25 @@ class AC3Context(Generic[Value]):
 class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
     def __init__(self, csp: Problem[Variable, Value]) -> None:
         self._consts = csp.consts
+        self._vars = csp.variables
 
-    # XXX: procedure => mutates `domain_x` => document
-    def _revise(
-        self,
-        domain_x: Domain[Value],
-        domain_y: Domain[Value],
-        const_xy: BinConst[Variable, Value],
-    ) -> bool:
-        """
-        Note: All binary constraints should be combined into one composed
-        constraint - see `CompositeConst`.
-        """
-        deleted = False
-        # XXX: list -> another shallow copy, and called inside `while queue`
-        for x_val in list(domain_x):
-            # Ban x_val if there's no possible y_val consistent with const_xy
-            if all(not const_xy.sat(x_val, y_val) for y_val in domain_y):
-                domain_x.remove(x_val)
-                deleted = True
-        return deleted
+    def _arc(self, x: Var, y: Var) -> Arc[Variable]:
+        return self._vars[x], self._vars[y]
+
+    # TODO: AC3 input is just a set of arcs/edges, assignment info is optional
+    def __call__(
+        self, arcs: Iterable[Arc[Variable]] | Iterable[Tuple[Var, Var]]
+    ) -> Optional[DomainSet[Value]]:
+        # TODO
+        return None
 
     def _check_consistency(
         self,
         assignment: Assign[Value],
-        revised_domains: Sequence[Domain[Value]],
+        domains: Sequence[Domain[Value]],
         unassigned: Sequence[bool],
     ) -> Optional[DomainSet[Value]]:
-        revised_domains = assignment >> revised_domains
+        revised_domains = assignment >> domains
         var = assignment.var
 
         # For maintaining AC it's enough to consider remaining neighbors of var
@@ -70,7 +98,8 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
 
         while queue:
             x, y = queue.popleft()
-            if self._revise(
+            if revise(
+                arc=self._arc(x, y),
                 domain_x=revised_domains[x],
                 domain_y=revised_domains[y],
                 const_xy=self._consts[x][y],
@@ -88,6 +117,6 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         assert not ctx.unassigned[var], f"x{var} should be assigned in {ctx}"
         return self._check_consistency(
             assignment=Assign(var=var, val=ctx.value),
-            revised_domains=ctx.domains,
+            domains=ctx.domains,
             unassigned=ctx.unassigned,
         )

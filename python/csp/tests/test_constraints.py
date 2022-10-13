@@ -14,9 +14,10 @@ def test_composite() -> None:
     c = c1 & c2
 
     assert str(c) == "x[0] <= x[1] & x[0] != x[1]"
-    assert c.sat(x_val=2, y_val=4)
-    assert not c.sat(x_val=4, y_val=2)
-    assert not c.sat(x_val=2, y_val=2)
+    assert c(arc=(x0, x1), x_val=2, y_val=4)
+    assert c(arc=(x1, x0), x_val=4, y_val=2)
+    assert not c(arc=(x0, x1), x_val=4, y_val=2)
+    assert not c(arc=(x0, x1), x_val=2, y_val=2)
 
     r = reduce(and_, [c1, c2])
     assert str(r) == str(c)

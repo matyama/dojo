@@ -6,17 +6,28 @@ from typing import (
     Iterable,
     List,
     Mapping,
+    Optional,
     Protocol,
     Sequence,
     Tuple,
     TypeVar,
 )
 
-from csp.constraints import BinConst, ConstSet, Different, LessEq
+from csp.constraints import (
+    BinConst,
+    ConstSet,
+    Different,
+    GreaterEq,
+    GreaterThan,
+    LessEq,
+    LessThan,
+)
 from csp.types import (
+    Arc,
     Assignment,
     Domain,
     DomainSet,
+    HasVar,
     Solution,
     Value,
     Var,
@@ -24,18 +35,22 @@ from csp.types import (
 )
 
 
-class VarCombinator(Generic[Variable, Value]):
+# TODO: refactor => move to constraints & rename to ConstBuilder / VarBinder
+class VarCombinator(Generic[Variable, Value], HasVar[Variable]):
     _var: Variable
-    _csp: "Problem[Variable, Value]"
 
-    def __init__(self, x: Variable, csp: "Problem[Variable, Value]") -> None:
+    def __init__(self, x: Variable) -> None:
         self._var = x
-        self._csp = csp
+
+    @property
+    def var(self) -> Variable:
+        return self._var
 
     def __ne__(self, y: object) -> Different[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)
         return Different(x=self._var, y=y._var)
 
+    # TODO: could accept VarCombinator | Variable
     # XXX: this combinator should only be available to OrdValue
     #  - check dynamically => somehow reveal LessEq[OrdValue]
     #  - assert statically => probably requires splitting VarCombinator
@@ -44,6 +59,21 @@ class VarCombinator(Generic[Variable, Value]):
         self, y: "VarCombinator[Variable, Value]"
     ) -> LessEq[Variable, Value]:
         return LessEq(x=self._var, y=y._var)
+
+    def __lt__(
+        self, y: "VarCombinator[Variable, Value]"
+    ) -> LessThan[Variable, Value]:
+        return LessThan(x=self._var, y=y._var)
+
+    def __ge__(
+        self, y: "VarCombinator[Variable, Value]"
+    ) -> GreaterEq[Variable, Value]:
+        return GreaterEq(x=self._var, y=y._var)
+
+    def __gt__(
+        self, y: "VarCombinator[Variable, Value]"
+    ) -> GreaterThan[Variable, Value]:
+        return GreaterThan(x=self._var, y=y._var)
 
 
 @dataclass(frozen=True)
@@ -117,15 +147,31 @@ class Problem(Generic[Variable, Value]):
         return self._doms
 
     @property
+    def variables(self) -> Sequence[Variable]:
+        return self._vars
+
+    @property
     def consts(self) -> Sequence[Mapping[Var, ConstSet[Variable, Value]]]:
         return self._consts
+
+    def const(
+        self, x: Variable, y: Variable
+    ) -> Optional[BinConst[Variable, Value]]:
+        var_x, var_y = self.var(x), self.var(y)
+        return self._consts[var_x].get(var_y)
+
+    def arc(self, x: Var, y: Var) -> Arc[Variable]:
+        return self._vars[x], self._vars[y]
 
     # XXX: might not be necessary anymorea or used just internally for Assign.
     def variable(self, i: Var) -> Variable:
         return self._vars[i]
 
+    # FIXME: deprecated => it just renames the constructor
+    #  - possibly global `def x(var: Variable)` or something like that
+    #  - one issue is that `self` here is a witness of `Value`
     def var_comb(self, x: Variable) -> VarCombinator[Variable, Value]:
-        return VarCombinator(x=x, csp=self)
+        return VarCombinator(x)
 
     def var(self, x: Variable) -> Var:
         return self._var_ids[x]
@@ -170,7 +216,7 @@ class Problem(Generic[Variable, Value]):
         Note: Re-assignment of a variable is considered consistent.
         """
         return all(
-            c.sat(x_val, y_val)
+            c(self.arc(x, y), x_val, y_val)
             for y, c in self._consts[x].items()
             if (y_val := a.get(y)) is not None
         )

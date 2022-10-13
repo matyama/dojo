@@ -1,10 +1,12 @@
 from abc import abstractmethod
 from typing import (
     Dict,
+    Generic,
     Hashable,
     List,
     Protocol,
     Set,
+    Tuple,
     TypeAlias,
     TypeVar,
     runtime_checkable,
@@ -51,6 +53,18 @@ class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
 # XXX: consider using NewType instead of just TypeAlias => need consts[var] tho
 Var: TypeAlias = int
 Variable = TypeVar("Variable", bound=Hash)
+Variable_co = TypeVar("Variable_co", bound=Hash, covariant=True)
+
+Arc: TypeAlias = Tuple[Variable, Variable]
+
+# pylint: disable=too-few-public-methods
+class HasVar(Protocol, Generic[Variable_co]):
+    @property
+    @abstractmethod
+    def var(self) -> Variable_co:
+        raise NotImplementedError
+
+
 Value = TypeVar("Value")
 # NOTE: dont't enforce bound here => check dynamically in constraints
 # Value = TypeVar("Value", bound=Ord)
