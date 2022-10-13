@@ -3,7 +3,6 @@ from typing import Tuple
 
 from csp.model import BinConst, Problem
 from csp.solver import solve
-from csp.types import Arc
 
 
 # TODO: replace by a generalized linear constraint

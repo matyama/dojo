@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from dataclasses import dataclass
 from typing import (
     Dict,
     Generic,
@@ -56,6 +57,7 @@ Variable = TypeVar("Variable", bound=Hash)
 Variable_co = TypeVar("Variable_co", bound=Hash, covariant=True)
 
 Arc: TypeAlias = Tuple[Variable, Variable]
+VarArc: TypeAlias = Tuple[Var, Var]
 
 # pylint: disable=too-few-public-methods
 class HasVar(Protocol, Generic[Variable_co]):
@@ -85,6 +87,13 @@ OrdValue = TypeVar("OrdValue", bound=Ord)
 #    => interval linked-list is sorted => remove => logarithmic lookup
 Domain: TypeAlias = Set[Value]
 DomainSet: TypeAlias = List[Domain[Value]]
+
+# TODO: DomainSetMut = NewType("DomainSetMut", DomainSet)
+#       blocked by https://github.com/python/mypy/issues/3331
+@dataclass(frozen=True)
+class DomainSetMut(Generic[Value]):
+    ds: DomainSet[Value]
+
 
 Assignment: TypeAlias = Dict[Var, Value]
 

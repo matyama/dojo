@@ -1,27 +1,39 @@
 from abc import abstractmethod
 from collections import deque
-from dataclasses import dataclass
 from typing import (
     Generic,
     Iterable,
     Optional,
     Protocol,
     Sequence,
-    Tuple,
+    TypeAlias,
     TypeVar,
 )
 
 from csp.constraints import BinConst
 from csp.model import Assign, Problem
-from csp.types import Arc, Domain, DomainSet, Value, Var, Variable
+from csp.types import (
+    Arc,
+    Domain,
+    DomainSet,
+    DomainSetMut,
+    Value,
+    Var,
+    VarArc,
+    Variable,
+)
 
 C_contra = TypeVar("C_contra", contravariant=True)
+I_co = TypeVar("I_co", covariant=True)
 
 
 # TODO: impl other AC algs => decide on the interface
-class Inference(Protocol, Generic[C_contra, Value]):  # pylint: disable=R0903
+#  - Alternative API: infer(Assign, C) -> C ... C ~ generic inference ctx
+class Inference(
+    Protocol, Generic[C_contra, I_co, Value]
+):  # pylint: disable=R0903
     @abstractmethod
-    def infer(self, var: Var, ctx: C_contra) -> Optional[DomainSet[Value]]:
+    def infer(self, assign: Assign[Value], ctx: C_contra) -> Optional[I_co]:
         raise NotImplementedError
 
 
@@ -54,22 +66,14 @@ def revise(
     return deleted
 
 
-# TODO: it's not clear wheter to include value or make the assumption that
-#       the state of `domains` must already correspond to the state of
-#       `unassigned`
-#  - the issue here is that `revise`/`ac3` modifies the input domains
-#  => so these must be deep-copied beforehand for the case when inference fails
-#     (i.e. rollback)
-@dataclass(frozen=True)
-class AC3Context(Generic[Value]):
-    value: Value
-    domains: Sequence[Domain[Value]]
-    unassigned: Sequence[bool]
+AC3Context: TypeAlias = Sequence[Domain[Value]]
 
 
 # XXX: explicitly subclass Inference?
-#      `Generic[Value], Inference[AC3Context[Value], Value]`
+#      `Generic[Value], Inference[AC3Context[Value], DomainSet[Value], Value]`
 class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
+    # XXX: consider making consts and vars args
+    #  => indicate that domains won't be used (should be passed to __call__)
     def __init__(self, csp: Problem[Variable, Value]) -> None:
         self._consts = csp.consts
         self._vars = csp.variables
@@ -77,24 +81,24 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
     def _arc(self, x: Var, y: Var) -> Arc[Variable]:
         return self._vars[x], self._vars[y]
 
-    # TODO: AC3 input is just a set of arcs/edges, assignment info is optional
+    @property
+    def arc_iter(self) -> Iterable[VarArc]:
+        return ((x, y) for x, ys in enumerate(self._consts) for y in ys)
+
+    # TODO: generalize arcs to | Iterable[Arc[Variable]]
     def __call__(
-        self, arcs: Iterable[Arc[Variable]] | Iterable[Tuple[Var, Var]]
-    ) -> Optional[DomainSet[Value]]:
-        # TODO
-        return None
-
-    def _check_consistency(
         self,
-        assignment: Assign[Value],
-        domains: Sequence[Domain[Value]],
-        unassigned: Sequence[bool],
+        arcs: Iterable[VarArc],
+        domains: Sequence[Domain[Value]] | DomainSetMut[Value],
     ) -> Optional[DomainSet[Value]]:
-        revised_domains = assignment >> domains
-        var = assignment.var
 
-        # For maintaining AC it's enough to consider remaining neighbors of var
-        queue = deque((x, var) for x in self._consts[var] if unassigned[x])
+        match domains:
+            case DomainSetMut(ds):
+                revised_domains = ds
+            case ds:
+                revised_domains = [set(d) for d in ds]
+
+        queue = deque(arcs)
 
         while queue:
             x, y = queue.popleft()
@@ -112,11 +116,9 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         return revised_domains
 
     def infer(
-        self, var: Var, ctx: AC3Context[Value]
+        self, assign: Assign[Value], ctx: AC3Context[Value]
     ) -> Optional[DomainSet[Value]]:
-        assert not ctx.unassigned[var], f"x{var} should be assigned in {ctx}"
-        return self._check_consistency(
-            assignment=Assign(var=var, val=ctx.value),
-            domains=ctx.domains,
-            unassigned=ctx.unassigned,
+        return self(
+            arcs=self.arc_iter,
+            domains=DomainSetMut(assign >> ctx),
         )

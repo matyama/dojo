@@ -21,6 +21,7 @@ from csp.constraints import (
     GreaterThan,
     LessEq,
     LessThan,
+    Same,
 )
 from csp.types import (
     Arc,
@@ -45,6 +46,10 @@ class VarCombinator(Generic[Variable, Value], HasVar[Variable]):
     @property
     def var(self) -> Variable:
         return self._var
+
+    def __eq__(self, y: object) -> Same[Variable, Value]:  # type: ignore
+        assert isinstance(y, self.__class__)
+        return Same(x=self._var, y=y._var)
 
     def __ne__(self, y: object) -> Different[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)

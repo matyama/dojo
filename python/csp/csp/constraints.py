@@ -1,7 +1,6 @@
 import operator
 from abc import abstractmethod
 from dataclasses import dataclass, field
-from enum import Enum
 from typing import Callable, Generic, List, Protocol, Tuple
 
 from csp.types import Arc, Ord, Value, Variable

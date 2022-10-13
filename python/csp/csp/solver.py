@@ -2,14 +2,15 @@ from functools import partial
 from operator import itemgetter
 from typing import Optional, Sequence
 
-from csp.inference import AC3, AC3Context
-from csp.model import AssignCtx, Problem
+from csp.inference import AC3
+from csp.model import Assign, AssignCtx, Problem
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 # TODO: API features
 #  - MVP: bianry constraints
 #  - alldiff([x, y, z]) constraints
 #  - CSP problem builder API => DSL: csp += x != y
+#  - constraints => connected components => solve independently
 
 # TODO: representation
 #  - use lists => {variables} => {idx: var} and further repr vars as ints
@@ -64,12 +65,9 @@ def solve(csp: Problem[Variable, Value]) -> Solution[Variable, Value]:
                 ctx.assignment[var] = val
 
                 # Infer feasible domains that are arc-consistent using AC3
-                infer_ctx = AC3Context(
-                    value=val,
-                    domains=domains,
-                    unassigned=ctx.unassigned,
+                revised_domains = inference_engine.infer(
+                    assign=Assign(var, val), ctx=domains
                 )
-                revised_domains = inference_engine.infer(var, infer_ctx)
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:
