@@ -30,9 +30,9 @@ class BinConst(Protocol, Generic[Variable, Value]):
         """Same as `sat` but automatically swaps values based on `arc`"""
         # NOTE: apply values in order given by the arc (asymmetric contraints)
         return (
-            self._sat(x_val, y_val)
+            self._sat(x_val=x_val, y_val=y_val)
             if arc == self.vars
-            else self._sat(y_val, x_val)
+            else self._sat(x_val=y_val, y_val=x_val)
         )
 
     # TODO: try to override `and` to get DSL like `c = c1 and c2`
@@ -62,6 +62,10 @@ class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
         return self.x, self.y
 
     def _sat(self, x_val: Value, y_val: Value) -> bool:
+        # NOTE: `self._sat` is only called via `__call__` which has already put
+        #       (x_val, y_val) in correct order. Therefore it's safe to bypass
+        #       the "arc check" in constraints contained in this set
+        # pylint: disable=protected-access
         return all(c._sat(x_val, y_val) for c in self.cs)
 
     def __str__(self) -> str:

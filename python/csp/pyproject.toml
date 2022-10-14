@@ -69,6 +69,8 @@ disable = [
     "missing-module-docstring",
     "missing-class-docstring",
     "missing-function-docstring",
+    # for development, re-enable when done
+    "fixme",
 ]
 
 

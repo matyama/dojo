@@ -41,8 +41,8 @@ def csp_b() -> CSP[str, int]:
     return csp
 
 
-@pytest.fixture
-def instance(
+@pytest.fixture(name="instance")
+def dispatch_instance(
     request: pytest.FixtureRequest,
     a: CSP[str, int],
     b: CSP[str, int],

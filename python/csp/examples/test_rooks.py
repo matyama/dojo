@@ -34,8 +34,8 @@ class Rooks(Model[BoardSize, Positions, Rook, Row]):
         return positions
 
 
-@pytest.fixture
-def rooks() -> Rooks:
+@pytest.fixture(name="rooks")
+def make_rooks() -> Rooks:
     return Rooks()
 
 
