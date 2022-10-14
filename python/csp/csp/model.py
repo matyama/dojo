@@ -15,6 +15,7 @@ from typing import (
 )
 
 from csp.constraints import (
+    AllDiff,
     BinConst,
     ConstSet,
     Different,
@@ -84,6 +85,10 @@ class CSP(Generic[Variable, Value]):
     _vars: List[Variable]
     _doms: DomainSet[Value]
     _consts: List[Dict[Var, ConstSet[Variable, Value]]]
+    # TODO: global constraints
+    #  - either a s `_globals: List[GlobalConst]` ... `_globals[x]` includes x
+    #  - or make a new dataclass ConstRef(x: Var, binary: Dict, global: List)
+    #    and include these as elements of `_consts`
 
     def __init__(self) -> None:
         self._var_ids = {}
@@ -100,7 +105,8 @@ class CSP(Generic[Variable, Value]):
         self,
         item: VarDom[Variable, Value]
         | Iterable[VarDom[Variable, Value]]
-        | BinConst[Variable, Value],
+        | BinConst[Variable, Value]
+        | AllDiff[Variable, Value],
     ) -> "CSP[Variable, Value]":
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
         if isinstance(item, tuple):
@@ -122,9 +128,15 @@ class CSP(Generic[Variable, Value]):
 
             assert len(self._consts) == len(self._vars)
 
+        # TODO: generalize to global constraints
+        elif isinstance(item, AllDiff):
+            for const in item.iter_binary():
+                self += const
+
         elif isinstance(item, Iterable):
             for var_dom in item:
                 self += var_dom
+
         else:
             var_a, var_b = item.vars  # type: Tuple[Variable, Variable]
             # NOTE: asserts that a, b have been registered before

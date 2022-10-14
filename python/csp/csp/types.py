@@ -53,6 +53,7 @@ class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
 
 NumSelf = TypeVar("NumSelf", bound="Num")
 
+
 # XXX: Sub, Div, Neg, [Zero, One]
 class Num(Ord, Protocol):
     def __add__(self: NumSelf, rhs: NumSelf) -> NumSelf:
@@ -88,6 +89,7 @@ NumValue = TypeVar("NumValue", bound=Num)
 #    => interval linked-list is sorted => remove => logarithmic lookup
 Domain: TypeAlias = Set[Value]
 DomainSet: TypeAlias = List[Domain[Value]]
+
 
 # TODO: DomainSetMut = NewType("DomainSetMut", DomainSet)
 #       blocked by https://github.com/python/mypy/issues/3331

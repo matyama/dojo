@@ -2,7 +2,8 @@ import operator
 from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Callable, Generic, List, Protocol, Tuple
+from itertools import combinations
+from typing import Callable, Generic, Iterable, List, Protocol, Tuple
 
 from csp.types import Arc, NumValue, Ord, OrdValue, Value, Variable
 
@@ -224,3 +225,16 @@ class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
     def __str__(self) -> str:
         op, _ = self.space.value
         return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"
+
+
+# TODO: this is an ad-hoc definition - make some nice API
+# TODO: don't convert to binary consts, solve as a matching problem (X, Vals)
+class AllDiff(Generic[Variable, Value]):
+    xs: Iterable[Variable]
+
+    def __init__(self, xs: Iterable[Variable]) -> None:
+        self.xs = xs
+
+    def iter_binary(self) -> Iterable[Different[Variable, Value]]:
+        for x, y in combinations(self.xs, 2):
+            yield Different(x, y)

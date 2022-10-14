@@ -1,7 +1,4 @@
-from dataclasses import dataclass
-from typing import Tuple
-
-from csp.constraints import Linear, Space2D
+from csp.constraints import Linear
 from csp.model import CSP
 from csp.solver import solve
 

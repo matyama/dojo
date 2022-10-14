@@ -1,6 +1,7 @@
-from itertools import combinations, product
+from itertools import product
 from typing import Iterable, List, Tuple, TypeAlias
 
+from csp.constraints import AllDiff
 from csp.model import CSP, Domain, Model, Solution
 from csp.solver import solve
 
@@ -29,7 +30,6 @@ def test_sudoku() -> None:
         [2, 8, 7, 4, 1, 9, 6, 3, 5],
         [3, 4, 5, 2, 8, 6, 1, 7, 9],
     ]
-    assert Sudoku.valid(expected)
 
     sudoku = Sudoku()
     csp = sudoku.into_csp(puzzle)
@@ -39,8 +39,8 @@ def test_sudoku() -> None:
 
     board = sudoku.from_csp(solution)
 
-    assert sudoku.valid(board)
-    # assert expected == actual
+    sudoku.validate(board)
+    assert board == expected
 
 
 Digit: TypeAlias = int
@@ -53,20 +53,16 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
     VALS = set(range(1, N + 1))
 
     @classmethod
-    def valid(cls, s: SudokuBoard) -> bool:
+    def validate(cls, s: SudokuBoard) -> None:
         for row in s:
             assert set(row) == cls.VALS
 
         for col in range(cls.N):
             assert {s[row][col] for row in range(cls.N)} == cls.VALS
 
+        block = list(product(range(3), repeat=2))
         for i, j in product(range(0, cls.N, 3), repeat=2):
-            block_vals = {
-                s[i + row][j + col] for row in range(3) for col in range(3)
-            }
-            assert block_vals == cls.VALS
-
-        return True
+            assert {s[i + x][j + y] for x, y in block} == cls.VALS
 
     @classmethod
     def domain(cls, val: int) -> Domain[Digit] | Iterable[Digit]:
@@ -85,31 +81,23 @@ class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):
             for col, val in enumerate(vals)
         )
 
-        # Constraints
-        for i in range(self.N):
+        # Values in each row must all be different
+        for row in range(self.N):
+            csp += AllDiff((row, col) for col in range(self.N))
 
-            # Values in each row must all be different
-            row_vars = (csp[(i, col)] for col in range(self.N))
-            for x, y in combinations(row_vars, 2):
-                csp += x != y
+        # Values in each column must all be different
+        for col in range(self.N):
+            csp += AllDiff((row, col) for row in range(self.N))
 
-            # Values in each column must all be different
-            col_vars = (csp[(row, i)] for row in range(self.N))
-            for x, y in combinations(col_vars, 2):
-                csp += x != y
-
-        # Values in each 3x3 square must all be different
+        # Values in each 3x3 block must all be different
+        block = list(product(range(3), repeat=2))
         for i, j in product(range(0, self.N, 3), repeat=2):
-            block = (
-                csp[(i + row, j + col)] for row in range(3) for col in range(3)
-            )
-            for x, y in combinations(block, 2):
-                csp += x != y
+            csp += AllDiff((i + x, j + y) for x, y in block)
 
         return csp
 
     def from_csp(self, solution: Solution[Cell, Digit]) -> SudokuBoard:
-        board = [[0] * self.N] * self.N
+        board = [[0] * self.N for _ in range(self.N)]
 
         # Fill the board from the final solution
         for (row, col), val in solution.items():

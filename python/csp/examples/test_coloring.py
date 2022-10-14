@@ -1,5 +1,4 @@
 from enum import Enum, auto
-from re import T
 from typing import Dict, List, TypeAlias
 
 from csp.model import CSP, Model, Solution
