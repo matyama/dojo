@@ -1,10 +1,10 @@
 from functools import partial
-from operator import itemgetter
 from typing import Optional, Sequence
 
+from csp.heuristics import MRV
 from csp.inference import AC3
 from csp.model import CSP, Assign, AssignCtx
-from csp.types import Assignment, Domain, Solution, Value, Var, Variable
+from csp.types import Assignment, Domain, Solution, Value, Variable
 
 # TODO: API features
 #  - MVP: bianry constraints
@@ -21,26 +21,13 @@ from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 #    => indicate failure bu an empty Dict (?)
 
 
+# TODO: new parames: `inference_engine: Inference[...]`, `next_val: ...`
 def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
     consistent = partial(CSP[Variable, Value].consistent, csp)
     complete = partial(CSP[Variable, Value].complete, csp)
 
-    snd: itemgetter[int] = itemgetter(1)
-
-    # TODO: generalize over this strategy
-    # TODO: MRV tie-breaking => degree heuristic
-    #       var with the most constraints on remaining vars
-    def next_var(
-        remaining: Sequence[bool], domains: Sequence[Domain[Value]]
-    ) -> Var:
-        """Min. remaining value (MRV) selection"""
-        var, _ = min(
-            ((x, len(d)) for x, d in enumerate(domains) if remaining[x]),
-            key=snd,
-        )
-        return var
-
+    next_var = MRV[Value](consts=[cs.keys() for cs in csp.consts])
     inference_engine = AC3(csp)
 
     def backtracking_search(
@@ -58,6 +45,8 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         #  - or rather keep domains sorted => must also apply to inference
         #    (`revised_domains`)
         #  - strategy => least constraining value (among remaining vars)
+        #             => i.e. the one that rules out the fewest values in the
+        #                remaining variables
         for val in domains[var]:
 
             # Check if assignment var := val is consistent
