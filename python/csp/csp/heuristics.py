@@ -1,8 +1,10 @@
 from abc import abstractmethod
 from operator import itemgetter
-from typing import AbstractSet, Generic, Protocol, Sequence
+from typing import AbstractSet, Generic, Iterable, Mapping, Protocol, Sequence
 
-from csp.types import Domain, Value, Var
+from csp.constraints import ConstSet
+from csp.model import CSP
+from csp.types import Domain, Value, Var, Variable
 
 
 class VarSelect(Protocol, Generic[Value]):  # pylint: disable=R0903
@@ -42,3 +44,66 @@ class MRV(Generic[Value], VarSelect[Value]):  # pylint: disable=R0903
             key=self._key,
         )
         return var
+
+
+class DomainSort(Protocol, Generic[Value]):  # pylint: disable=R0903
+    @abstractmethod
+    def __call__(
+        self,
+        x: Var,
+        domains: Sequence[Domain[Value]],
+        unassigned: Sequence[bool],
+    ) -> Iterable[Value]:
+        raise NotImplementedError
+
+
+class LeastConstraining(
+    Generic[Variable, Value], DomainSort[Value]
+):  # pylint: disable=too-few-public-methods
+    """
+    Heuristic which yields values from the domain of given variable x in order
+    of the "least constraining" values.
+
+    This means that the value that rules out the fewest values in the remaining
+    variables (involved in constraints with x) is returned first.
+
+    Runs in `O(|C(x, u)|*|D_x|*|D_y|)` time where
+     - `|C(x, u)|` is the number of constraints between x and its neighbors u
+       which have not yet been assigned a value
+     - `|D_i|` is the current domain size of variable i
+    """
+
+    _consts: Sequence[Mapping[Var, ConstSet[Variable, Value]]]
+
+    def __init__(self, csp: CSP[Variable, Value]) -> None:
+        self._vars = csp.variables
+        self._consts = csp.consts
+
+    def __call__(
+        self,
+        x: Var,
+        domains: Sequence[Domain[Value]],
+        unassigned: Sequence[bool],
+    ) -> Iterable[Value]:
+        x_var = self._vars[x]
+        consts_x = [
+            (y, self._vars[y], c)
+            for y, c in self._consts[x].items()
+            if unassigned[y]
+        ]
+
+        def count_inconsistent(x_val: Value) -> int:
+            return sum(
+                1
+                for y, y_var, c in consts_x
+                for y_val in domains[y]
+                if not c(arc=(x_var, y_var), x_val=x_val, y_val=y_val)
+            )
+
+        sorted_domain = sorted(
+            ((x_val, count_inconsistent(x_val)) for x_val in domains[x]),
+            key=itemgetter(1),
+        )
+
+        for x_val, _ in sorted_domain:
+            yield x_val

@@ -1,7 +1,7 @@
 from functools import partial
 from typing import Optional, Sequence
 
-from csp.heuristics import MRV
+from csp.heuristics import MRV, LeastConstraining
 from csp.inference import AC3
 from csp.model import CSP, Assign, AssignCtx
 from csp.types import Assignment, Domain, Solution, Value, Variable
@@ -28,6 +28,7 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     complete = partial(CSP[Variable, Value].complete, csp)
 
     next_var = MRV[Value](consts=[cs.keys() for cs in csp.consts])
+    sort_domain = LeastConstraining[Variable, Value](csp)
     inference_engine = AC3(csp)
 
     def backtracking_search(
@@ -41,13 +42,7 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         var = next_var(ctx.unassigned, domains)
         ctx.unassigned[var] = False
 
-        # TODO: sorted(domains(var), key=some_strategy)
-        #  - or rather keep domains sorted => must also apply to inference
-        #    (`revised_domains`)
-        #  - strategy => least constraining value (among remaining vars)
-        #             => i.e. the one that rules out the fewest values in the
-        #                remaining variables
-        for val in domains[var]:
+        for val in sort_domain(var, domains, ctx.unassigned):
 
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
