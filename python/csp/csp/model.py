@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import (
+    Callable,
     Dict,
     Generic,
     Iterable,
@@ -24,6 +25,7 @@ from csp.constraints import (
     LessEq,
     LessThan,
     Same,
+    Unary,
 )
 from csp.types import (
     Arc,
@@ -46,6 +48,9 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
 
     def __init__(self, var: Variable) -> None:
         self.var = var
+
+    def __or__(self, p: Callable[[Value], bool]) -> Unary[Variable, Value]:
+        return Unary(x=self.var, p=p)
 
     def __eq__(self, y: object) -> Same[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)
@@ -106,6 +111,7 @@ class CSP(Generic[Variable, Value]):
         item: VarDom[Variable, Value]
         | Iterable[VarDom[Variable, Value]]
         | BinConst[Variable, Value]
+        | Unary[Variable, Value]
         | AllDiff[Variable, Value],
     ) -> "CSP[Variable, Value]":
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
@@ -127,6 +133,15 @@ class CSP(Generic[Variable, Value]):
             self._consts.append({})
 
             assert len(self._consts) == len(self._vars)
+
+        elif isinstance(item, Unary):
+            x = self._var_ids.get(item.x)
+            if x is None:
+                raise ValueError(f"{item.x} with domain must first be added")
+
+            # NOTE: unary constraints can be encoded by directly reducing
+            #       variables's domain
+            self._doms[x] = {v for v in self._doms[x] if item.p(v)}
 
         # TODO: generalize to global constraints
         elif isinstance(item, AllDiff):

@@ -6,22 +6,10 @@ from csp.inference import AC3
 from csp.model import CSP, Assign, AssignCtx
 from csp.types import Assignment, Domain, Solution, Value, Variable
 
+
 # TODO: API features
-#  - MVP: bianry constraints
-#  - alldiff([x, y, z]) constraints
-#  - CSP problem builder API => DSL: csp += x != y
 #  - constraints => connected components => solve independently
-
-# TODO: representation
-#  - use lists => {variables} => {idx: var} and further repr vars as ints
-#  - consequence: Variable does not have to be Hash, possibly not even Eq
-#  - assignment: List[Optional[Value]] ...as a WIP solution
-#    - assignment[i] = Some(v) if x_i := v else None
-#  - final solution: Optional[Dict[Variable, Value]] or without just Dict
-#    => indicate failure bu an empty Dict (?)
-
-
-# TODO: new parames: `inference_engine: Inference[...]`, `next_val: ...`
+#  - new parames: `inference_engine: Inference[...]`, `next_val: ...`
 def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
     consistent = partial(CSP[Variable, Value].consistent, csp)

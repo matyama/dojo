@@ -35,9 +35,6 @@ class BinConst(Protocol, Generic[Variable, Value]):
             else self._sat(x_val=y_val, y_val=x_val)
         )
 
-    # TODO: try to override `and` to get DSL like `c = c1 and c2`
-    #  - `and` works only on bool values, and with refs
-    #  - in contrast, this works as `c = c1 & c2`
     def __and__(
         self, c: "BinConst[Variable, Value]"
     ) -> "ConstSet[Variable, Value]":
@@ -229,6 +226,12 @@ class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
     def __str__(self) -> str:
         op, _ = self.space.value
         return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"
+
+
+@dataclass(frozen=True)
+class Unary(Generic[Variable, Value]):
+    x: Variable
+    p: Callable[[Value], bool]
 
 
 # TODO: this is an ad-hoc definition - make some nice API

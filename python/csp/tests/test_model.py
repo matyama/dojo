@@ -5,7 +5,7 @@ def test_model() -> None:
     csp = CSP[str, int]()
 
     xs = [csp["x1"], csp["x2"]]
-    ds = [{0, 1, 2}, {2}]
+    ds = [{0, 1, 2}, {2, 3}]
     x, y = xs
 
     csp += zip(xs, ds)
@@ -14,10 +14,14 @@ def test_model() -> None:
     x_var, y_var = csp.var(x), csp.var(y)
     assert list(csp.iter_vars()) == [x_var, y_var]
 
-    # TODO: propery-based test: variable . var_id = id = var_id . variable
     assert csp.variable(x_var) == x.var and csp.variable(y_var) == y.var
 
     csp += (x <= y) & (x != y)
+
+    def even(v: int) -> bool:
+        return v % 2 == 0
+
+    csp += y | even
 
     s = csp.init()
 

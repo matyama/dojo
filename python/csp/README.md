@@ -20,11 +20,46 @@ for x, y in edges:
 coloring = solve(csp)
 ```
 
+# Supported Features
+
+## Binary Constraints
+- `Eq` value types: `csp += x == y` or `csp += x != y`
+- `Ord` value types: `csp += x < y`, similarly for `<=`, `>=`, and `>`
+- `Num` value types: `Linear` can model planar spaces such as `a*x + b*y = c`
+
+Convenienly, binary constraints can be combined together:
+```python
+csp += (x >= y) & (x > z) & (x >= w)
+```
+
+## Unary Constraints
+```python
+x = csp["x"]
+
+csp += x, range(10)
+
+def even(v: int) -> bool:
+  return v % 2 == 0
+
+# results in domain(x) = {0, 2, 4, 6, 8}
+csp += x | even
+```
+
+## Global Constraints
+ - `csp += AllDiff([x1, x2, x3])`, note: current implementation naively converts
+   the _alldiff_ constraint into an equivalent set of binary constraints
+
 # Examples
  - [Sudoku](examples/test_sudoku.py)
  - [N Rooks](examples/test_rooks.py)
  - [Graph coloring](examples/test_coloring.py) (Graph is the map of Australia)
 
+# Implementation details
+The `solve(csp)` algorithm is standard _backtracking search_ with
+_arc consistency_ checking (_AC3_) and heuristics:
+ - *Variable selection*: _minimal remaining values_ (`MRV`) with
+   _degree heuristic_ for tie-breaking
+ - *Value prioritization*: _least constraining value first_ (`LeastConstrainig`)
 
 # Typing
 This CSP library is fully type annotated and type-checked via `mypy` with the

@@ -15,7 +15,7 @@ from typing import (
 
 
 # XXX: having to resort to `@runtime_checkable` is really sad
-#  - also it only check presence of methods, not their signatures
+#  - also it only checks presence of methods, not their signatures
 @runtime_checkable
 class Eq(Protocol):
     @abstractmethod
