@@ -60,27 +60,40 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
         assert isinstance(y, self.__class__)
         return Different(x=self.var, y=y.var)
 
-    # TODO: could accept VarCombinator | Variable
     # XXX: this combinator should only be available to OrdValue
     #  - check dynamically => somehow reveal LessEq[OrdValue]
     #  - assert statically => probably requires splitting VarCombinator
     #  - NOTE: CSP instance always has _single_ concrete Value
-    def __le__(self, y: "X[Variable, Value]") -> LessEq[Variable, Value]:
-        return LessEq(x=self.var, y=y.var)
+    def __le__(
+        self, y: "X[Variable, Value]" | Variable
+    ) -> LessEq[Variable, Value]:
+        return LessEq(x=self.var, y=y.var if isinstance(y, X) else y)
 
-    def __lt__(self, y: "X[Variable, Value]") -> LessThan[Variable, Value]:
-        return LessThan(x=self.var, y=y.var)
+    def __lt__(
+        self, y: "X[Variable, Value]" | Variable
+    ) -> LessThan[Variable, Value]:
+        return LessThan(x=self.var, y=y.var if isinstance(y, X) else y)
 
-    def __ge__(self, y: "X[Variable, Value]") -> GreaterEq[Variable, Value]:
-        return GreaterEq(x=self.var, y=y.var)
+    def __ge__(
+        self, y: "X[Variable, Value]" | Variable
+    ) -> GreaterEq[Variable, Value]:
+        return GreaterEq(x=self.var, y=y.var if isinstance(y, X) else y)
 
-    def __gt__(self, y: "X[Variable, Value]") -> GreaterThan[Variable, Value]:
-        return GreaterThan(x=self.var, y=y.var)
+    def __gt__(
+        self, y: "X[Variable, Value]" | Variable
+    ) -> GreaterThan[Variable, Value]:
+        return GreaterThan(x=self.var, y=y.var if isinstance(y, X) else y)
 
 
 VarDom: TypeAlias = Tuple[
     Variable | X[Variable, Value], Domain[Value] | Iterable[Value]
 ]
+
+
+# NOTE: generic NewType is not yet supported
+@dataclass(frozen=True)
+class Restrict(Generic[Variable, Value]):
+    assign: Mapping[Variable | X[Variable, Value], Value]
 
 
 class CSP(Generic[Variable, Value]):
@@ -101,17 +114,14 @@ class CSP(Generic[Variable, Value]):
         self._doms = []
         self._consts = []
 
-    # TODO: extensions:
-    #  - accept unary constraints => filter out domain instead of adding to
-    #    const
-    #  - accept initial assignment => trivial unary constraint
-
+    # pylint: disable=too-many-branches
     def __iadd__(
         self,
         item: VarDom[Variable, Value]
         | Iterable[VarDom[Variable, Value]]
         | BinConst[Variable, Value]
         | Unary[Variable, Value]
+        | Restrict[Variable, Value]
         | AllDiff[Variable, Value],
     ) -> "CSP[Variable, Value]":
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
@@ -121,18 +131,20 @@ class CSP(Generic[Variable, Value]):
             if isinstance(x, X):
                 x = x.var
 
-            assert x not in self._var_ids, f"x{x} already recorded"
-
             # materialize domain if necessary
             if not isinstance(d, set):
                 d = set(d)
 
-            self._var_ids[x] = len(self._vars)
-            self._vars.append(x)
-            self._doms.append(d)
-            self._consts.append({})
+            x_var = self._var_ids.get(x)
+            if x_var is not None:
+                self._doms[x_var] = d
+            else:
+                self._var_ids[x] = len(self._vars)
+                self._vars.append(x)
+                self._doms.append(d)
+                self._consts.append({})
 
-            assert len(self._consts) == len(self._vars)
+                assert len(self._consts) == len(self._vars)
 
         elif isinstance(item, Unary):
             x = self._var_ids.get(item.x)
@@ -142,6 +154,10 @@ class CSP(Generic[Variable, Value]):
             # NOTE: unary constraints can be encoded by directly reducing
             #       variables's domain
             self._doms[x] = {v for v in self._doms[x] if item.p(v)}
+
+        elif isinstance(item, Restrict):
+            for x, v in item.assign.items():
+                self += x, {v}
 
         # TODO: generalize to global constraints
         elif isinstance(item, AllDiff):
