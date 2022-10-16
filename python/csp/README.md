@@ -49,6 +49,15 @@ csp += x | even
  - `csp += AllDiff([x1, x2, x3])`, note: current implementation naively converts
    the _alldiff_ constraint into an equivalent set of binary constraints
 
+## Splitting into independent instances
+The `solve(csp)` function uses Tarjan's algorithm for finding strongly
+connected components of the constraint graph to build a set of
+independent CSPs.
+
+Variables of these CSPs share no constraints between each other and thus
+can be solved independently. Currently this is done in sequence but
+extension to parallel execution is possible.
+
 # Examples
  - [Sudoku](examples/test_sudoku.py)
  - [N Rooks](examples/test_rooks.py)
