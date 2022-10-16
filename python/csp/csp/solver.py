@@ -1,16 +1,47 @@
 from functools import partial
-from typing import Optional, Sequence
+from typing import Iterable, List, Optional, Sequence
 
 from csp.heuristics import MRV, LeastConstraining
 from csp.inference import AC3
 from csp.model import CSP, Assign, AssignCtx
-from csp.types import Assignment, Domain, Solution, Value, Variable
+from csp.scc import strongly_connected_components
+from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 
 # TODO: API features
-#  - constraints => connected components => solve independently
 #  - new parames: `inference_engine: Inference[...]`, `next_val: ...`
 def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
+    match _split(csp):
+        case [orig]:
+            return _solve(orig)
+        case subs:
+            # TODO: solve multiple independent CSPs in parallel
+            solutions: Iterable[Solution[Variable, Value]] = map(_solve, subs)
+            solution = {var: val for s in solutions for var, val in s.items()}
+            return solution if len(solution) == csp.num_vars else {}
+
+
+def _split(csp: CSP[Variable, Value]) -> List[CSP[Variable, Value]]:
+    const_graph = [list(ys.keys()) for ys in csp.consts]
+    scc = strongly_connected_components(graph=const_graph)
+
+    def sub_csp(component: Iterable[Var]) -> CSP[Variable, Value]:
+        sub = CSP[Variable, Value]()
+
+        for x in component:
+            sub += csp.variables[x], csp.domains[x]
+
+        for x in component:
+            # NOTE: since this is a SCC, all neighbors of x are in it as well
+            for c in csp.consts[x].values():
+                sub += c
+
+        return sub
+
+    return [sub_csp(component) for component in scc] if len(scc) > 1 else [csp]
+
+
+def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
     consistent = partial(CSP[Variable, Value].consistent, csp)
     complete = partial(CSP[Variable, Value].complete, csp)

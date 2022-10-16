@@ -55,7 +55,7 @@ class Australia(Model[Map, Coloring, Territory, Color]):
 
         return csp
 
-    def from_csp(self, solution: Solution) -> Coloring:
+    def from_csp(self, solution: Solution[Territory, Color]) -> Coloring:
         return solution
 
 
@@ -70,4 +70,6 @@ def test_coloring() -> None:
 
     # validate the coloring
     for t, ts in australia.MAP.items():
+        # NOTE: pylint is quite confused here, `coloring` is clearly a dict
+        # pylint: disable=unsubscriptable-object
         assert all(coloring[t] != coloring[neighbor] for neighbor in ts)
