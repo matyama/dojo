@@ -49,15 +49,6 @@ csp += x | even
  - `csp += AllDiff([x1, x2, x3])`, note: current implementation naively converts
    the _alldiff_ constraint into an equivalent set of binary constraints
 
-## Splitting into independent instances
-The `solve(csp)` function uses Tarjan's algorithm for finding strongly
-connected components of the constraint graph to build a set of
-independent CSPs.
-
-Variables of these CSPs share no constraints between each other and thus
-can be solved independently. Currently this is done in sequence but
-extension to parallel execution is possible.
-
 # Examples
  - [Sudoku](examples/test_sudoku.py)
  - [N Rooks](examples/test_rooks.py)
@@ -69,6 +60,15 @@ _arc consistency_ checking (_AC3_) and heuristics:
  - *Variable selection*: _minimal remaining values_ (`MRV`) with
    _degree heuristic_ for tie-breaking
  - *Value prioritization*: _least constraining value first_ (`LeastConstrainig`)
+
+## Splitting into independent instances
+The `solve(csp)` function uses Tarjan's algorithm for finding strongly
+connected components of the constraint graph to build a set of
+independent CSPs.
+
+Variables of these CSPs share no constraints between each other and thus
+can be solved independently. Currently this is done in sequence but
+extension to parallel execution is possible.
 
 # Typing
 This CSP library is fully type annotated and type-checked via `mypy` with the
