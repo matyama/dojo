@@ -5,7 +5,15 @@ from enum import Enum
 from itertools import combinations
 from typing import Callable, Generic, Iterable, List, Protocol, Tuple
 
-from csp.types import Arc, NumValue, Ord, OrdValue, Value, Variable
+from csp.types import (
+    Arc,
+    NumValue,
+    Ord,
+    OrdValue,
+    Value,
+    Variable,
+    VarTransform,
+)
 
 
 class BinConst(Protocol, Generic[Variable, Value]):
@@ -81,23 +89,61 @@ class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
 
 @dataclass(frozen=True)
 class PredicateConst(Generic[Variable, Value], BinConst[Variable, Value]):
-    x: Variable
-    y: Variable
+    x: Variable | VarTransform[Variable, Value]
+    y: Variable | VarTransform[Variable, Value]
     pred: Callable[[Value, Value], bool]
     op: str
 
     def __post_init__(self) -> None:
         assert self.x != self.y, "x must be different from y"
 
+    @classmethod
+    def var(cls, var: Variable | VarTransform[Variable, Value]) -> Variable:
+        match var:
+            case VarTransform(x, _):
+                return x
+            case x:
+                return x
+
+    @classmethod
+    def transform(
+        cls, var: Variable | VarTransform[Variable, Value], val: Value
+    ) -> Value:
+        match var:
+            case VarTransform(_, f):
+                return f(val)
+            case _:
+                return val
+
+    @property
+    def var_x(self) -> Variable:
+        return self.var(self.x)
+
+    @property
+    def var_y(self) -> Variable:
+        return self.var(self.y)
+
     @property
     def vars(self) -> Tuple[Variable, Variable]:
-        return self.x, self.y
+        return self.var_x, self.var_y
 
     def _sat(self, x_val: Value, y_val: Value) -> bool:
+        x_val = self.transform(var=self.x, val=x_val)
+        y_val = self.transform(var=self.y, val=y_val)
         return self.pred(x_val, y_val)
 
+    @classmethod
+    def repr(
+        cls, var: Variable | VarTransform[Variable, Value], f: str = "f"
+    ) -> str:
+        match var:
+            case VarTransform(x, _):
+                return f"{f}({x})"
+            case x:
+                return str(x)
+
     def __str__(self) -> str:
-        return f"x[{self.x}] {self.op} x[{self.y}]"
+        return f"{self.repr(self.x)} {self.op} {self.repr(self.y, f='g')}"
 
 
 @dataclass(frozen=True)
@@ -117,7 +163,11 @@ class Different(
 
 # pylint: disable=too-few-public-methods
 class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(self, x: Variable, y: Variable) -> None:
+    def __init__(
+        self,
+        x: Variable | VarTransform[Variable, Value],
+        y: Variable | VarTransform[Variable, Value],
+    ) -> None:
         def pred(x: Value, y: Value) -> bool:
             # XXX: dymamic check => improve
             #  - also x is Ord shoudl imply y is Ord
@@ -129,7 +179,11 @@ class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
 
 # pylint: disable=too-few-public-methods
 class LessThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(self, x: Variable, y: Variable) -> None:
+    def __init__(
+        self,
+        x: Variable | VarTransform[Variable, Value],
+        y: Variable | VarTransform[Variable, Value],
+    ) -> None:
         def pred(x: Value, y: Value) -> bool:
             assert isinstance(x, Ord) and isinstance(y, Ord)
             return x < y
@@ -139,7 +193,11 @@ class LessThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
 
 # pylint: disable=too-few-public-methods
 class GreaterEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(self, x: Variable, y: Variable) -> None:
+    def __init__(
+        self,
+        x: Variable | VarTransform[Variable, Value],
+        y: Variable | VarTransform[Variable, Value],
+    ) -> None:
         def pred(x: Value, y: Value) -> bool:
             assert isinstance(x, Ord) and isinstance(y, Ord)
             return x >= y
@@ -149,7 +207,11 @@ class GreaterEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
 
 # pylint: disable=too-few-public-methods
 class GreaterThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(self, x: Variable, y: Variable) -> None:
+    def __init__(
+        self,
+        x: Variable | VarTransform[Variable, Value],
+        y: Variable | VarTransform[Variable, Value],
+    ) -> None:
         def pred(x: Value, y: Value) -> bool:
             assert isinstance(x, Ord) and isinstance(y, Ord)
             return x > y
@@ -204,17 +266,45 @@ class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
     """
 
     a: NumValue
-    x: Variable
+    x: Variable | VarTransform[Variable, NumValue]
     b: NumValue
-    y: Variable
+    y: Variable | VarTransform[Variable, NumValue]
     c: NumValue
     space: Space2D = Space2D.LINE
 
+    @classmethod
+    def var(cls, var: Variable | VarTransform[Variable, NumValue]) -> Variable:
+        match var:
+            case VarTransform(x, _):
+                return x
+            case x:
+                return x
+
+    @classmethod
+    def transform(
+        cls, var: Variable | VarTransform[Variable, NumValue], val: NumValue
+    ) -> NumValue:
+        match var:
+            case VarTransform(_, f):
+                return f(val)
+            case _:
+                return val
+
+    @property
+    def var_x(self) -> Variable:
+        return self.var(self.x)
+
+    @property
+    def var_y(self) -> Variable:
+        return self.var(self.y)
+
     @property
     def vars(self) -> Tuple[Variable, Variable]:
-        return self.x, self.y
+        return self.var_x, self.var_y
 
     def _sat(self, x_val: NumValue, y_val: NumValue) -> bool:
+        x_val = self.transform(var=self.x, val=x_val)
+        y_val = self.transform(var=self.y, val=y_val)
         # XXX: better would be to have the defining line as
         #      a*x + b*y + c = 0 ...but then `pred` would need to take a 0
         line = self.a * x_val + self.b * y_val
@@ -223,9 +313,21 @@ class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
         p: Callable[[OrdValue, OrdValue], bool] = pred
         return p(line, self.c)
 
+    @classmethod
+    def repr(
+        cls, var: Variable | VarTransform[Variable, NumValue], f: str = "f"
+    ) -> str:
+        match var:
+            case VarTransform(x, _):
+                return f"{f}({x})"
+            case x:
+                return str(x)
+
     def __str__(self) -> str:
         op, _ = self.space.value
-        return f"{self.a}*{self.x} + {self.b}*{self.y} {op} {self.c}"
+        x = self.repr(self.x, f="f")
+        y = self.repr(self.y, f="g")
+        return f"{self.a}*{x} + {self.b}*{y} {op} {self.c}"
 
 
 @dataclass(frozen=True)
@@ -237,7 +339,7 @@ class Unary(Generic[Variable, Value]):
 # TODO: this is an ad-hoc definition - make some nice API
 # TODO: don't convert to binary consts, solve as a matching problem (X, Vals)
 class AllDiff(Generic[Variable, Value]):
-    xs: Iterable[Variable]
+    xs: Iterable[Variable | VarTransform[Variable, Value]]
 
     def __init__(self, xs: Iterable[Variable]) -> None:
         self.xs = xs

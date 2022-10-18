@@ -26,6 +26,8 @@ coloring = solve(csp)
 - `Eq` value types: `csp += x == y` or `csp += x != y`
 - `Ord` value types: `csp += x < y`, similarly for `<=`, `>=`, and `>`
 - `Num` value types: `Linear` can model planar spaces such as `a*x + b*y = c`
+  - Note: `Linear` can be used in its generalized form `a*f(x) + b*g(y) = c` by
+    specifying `x` (and `y`) as `VarTransform(x, f)`
 
 Convenienly, binary constraints can be combined together:
 ```python

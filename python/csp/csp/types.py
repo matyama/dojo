@@ -1,6 +1,7 @@
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import (
+    Callable,
     Dict,
     Generic,
     Hashable,
@@ -106,6 +107,15 @@ DomainSet: TypeAlias = List[Domain[Value]]
 @dataclass(frozen=True)
 class DomainSetMut(Generic[Value]):
     ds: DomainSet[Value]
+
+
+Transform: TypeAlias = Callable[[Value], Value]
+
+
+@dataclass(frozen=True)
+class VarTransform(Generic[Variable, Value]):
+    x: Variable
+    f: Transform[Value]
 
 
 Assignment: TypeAlias = Dict[Var, Value]
