@@ -32,10 +32,12 @@ from csp.types import (
     Assignment,
     Domain,
     DomainSet,
+    Num,
     Solution,
     Value,
     Var,
     Variable,
+    VarTransform,
 )
 
 
@@ -51,6 +53,23 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
 
     def __or__(self, p: Callable[[Value], bool]) -> Unary[Variable, Value]:
         return Unary(x=self.var, p=p)
+
+    # FIXME: get rid of the dynamic check and resove type ignore
+    #  - `Num` must be `@runtime_checkable` to make this working
+    def __add__(self, y: Value) -> VarTransform[Variable, Value]:
+        # NOTE: y: Num => Value: NumValue => x: Num
+        assert isinstance(y, Num)
+        return VarTransform(x=self.var, f=lambda x: x + y)  # type: ignore
+
+    def __sub__(self, y: Value) -> VarTransform[Variable, Value]:
+        # NOTE: y: Num => Value: NumValue => x: Num
+        assert isinstance(y, Num)
+        return VarTransform(x=self.var, f=lambda x: x - y)  # type: ignore
+
+    def __mul__(self, y: Value) -> VarTransform[Variable, Value]:
+        # NOTE: y: Num => Value: NumValue => x: Num
+        assert isinstance(y, Num)
+        return VarTransform(x=self.var, f=lambda x: x * y)  # type: ignore
 
     def __eq__(self, y: object) -> Same[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)

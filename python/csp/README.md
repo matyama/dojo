@@ -54,7 +54,8 @@ csp += x | even
 # Examples
  - [Sudoku](examples/test_sudoku.py)
  - [N Rooks](examples/test_rooks.py)
- - [Graph coloring](examples/test_coloring.py) (Graph is the map of Australia)
+ - [N Queens](examples/test_queens.py)
+ - [Graph coloring](examples/test_coloring.py)
 
 # Implementation details
 The `solve(csp)` algorithm is standard _backtracking search_ with
@@ -82,6 +83,8 @@ Additionally, it passes `flake8` and `pylint` checks.
  - The type variable `Value` is currently not bound to `Eq`/`Ord` typeclass, so
    when one constructs a binary contraint `x < y` for types which do not
    implement `__lt__`, a runtime error is raised.
+ - Similar dynamic check is used when constructing simple `VarTransform`s such
+   as `x + 1` (here values mut be instances of `Num`)
  - CSP instance is homogeneous in its variable and value type, meaning that if
    one uses for instance the `Linear` constraint, the `Value` type must be an
    instnce of `Num` even though only a subset of variables is involved.

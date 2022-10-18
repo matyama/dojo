@@ -65,9 +65,14 @@ class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
 NumSelf = TypeVar("NumSelf", bound="Num")
 
 
-# XXX: Sub, Div, Neg, [Zero, One]
+# XXX: Div (int is not Div!), Neg, [Zero, One]
+# XXX: `@runtime_checkable` only added due to `X.__add__`
+@runtime_checkable
 class Num(Ord, Protocol):
     def __add__(self: NumSelf, rhs: NumSelf) -> NumSelf:
+        raise NotImplementedError
+
+    def __sub__(self: NumSelf, rhs: NumSelf) -> NumSelf:
         raise NotImplementedError
 
     def __mul__(self: NumSelf, rhs: NumSelf) -> NumSelf:
@@ -77,6 +82,13 @@ class Num(Ord, Protocol):
 # XXX: consider using NewType instead of just TypeAlias
 Var: TypeAlias = int
 Variable = TypeVar("Variable", bound=Hash)
+
+
+# pylint: disable=too-few-public-methods
+@runtime_checkable
+class HasVar(Protocol, Generic[Variable]):
+    var: Variable
+
 
 Arc: TypeAlias = Tuple[Variable, Variable]
 VarArc: TypeAlias = Tuple[Var, Var]

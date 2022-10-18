@@ -7,6 +7,7 @@ from typing import Callable, Generic, Iterable, List, Protocol, Tuple
 
 from csp.types import (
     Arc,
+    HasVar,
     NumValue,
     Ord,
     OrdValue,
@@ -339,11 +340,20 @@ class Unary(Generic[Variable, Value]):
 # TODO: this is an ad-hoc definition - make some nice API
 # TODO: don't convert to binary consts, solve as a matching problem (X, Vals)
 class AllDiff(Generic[Variable, Value]):
-    xs: Iterable[Variable | VarTransform[Variable, Value]]
+    xs: Iterable[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
 
-    def __init__(self, xs: Iterable[Variable]) -> None:
+    def __init__(
+        self,
+        xs: Iterable[
+            Variable | HasVar[Variable] | VarTransform[Variable, Value]
+        ],
+    ) -> None:
         self.xs = xs
 
     def iter_binary(self) -> Iterable[Different[Variable, Value]]:
         for x, y in combinations(self.xs, 2):
+            if isinstance(x, HasVar):
+                x = x.var
+            if isinstance(y, HasVar):
+                y = y.var
             yield Different(x, y)
