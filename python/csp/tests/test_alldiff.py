@@ -1,4 +1,4 @@
-from typing import Sequence
+from typing import Iterable, Sequence, Tuple
 
 import pytest
 
@@ -6,6 +6,33 @@ from csp.constraints import AllDiff
 from csp.inference import AC3, AllDiffInference
 from csp.model import CSP
 from csp.types import DomainSet
+
+
+@pytest.mark.parametrize(
+    "assignment",
+    [
+        pytest.param(
+            [("x1", 2), ("x2", 3), ("x3", 1)],
+            id="consistent",
+        ),
+        pytest.param(
+            [("x1", 2), ("x2", 3), ("x3", 1), ("x4", 3)],
+            id="consistent-extra-assignment",
+        ),
+        pytest.param(
+            [("x1", 2), ("x2", 3), ("x4", 3)],
+            id="consistent-partial-assignment",
+        ),
+        pytest.param(
+            [("x1", 2), ("x2", 2), ("x3", 1), ("x4", 3)],
+            marks=pytest.mark.xfail,
+            id="inconsistent",
+        ),
+    ],
+)
+def test_alldiff_consistency(assignment: Iterable[Tuple[str, int]]) -> None:
+    alldiff = AllDiff[str, int](["x1", "x2", "x3"])
+    assert alldiff(assignment)
 
 
 # Examples:
@@ -46,7 +73,8 @@ def test_alldiff_inference(
     csp += alldiff
 
     inference = AllDiffInference(csp)
-    ds_alldiff = inference(constraint=alldiff, domains=ds)
+    ds_alldiff, reduced = inference(constraint=alldiff, domains=ds)
+    assert reduced
     assert ds_alldiff == expected
 
     ac3 = AC3(csp)

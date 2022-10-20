@@ -187,6 +187,33 @@ class ValueGraph(Generic[Value]):
 class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._vars = csp.vars
+        # TODO: [c for c in csp.globals if isinstance(c, AllDiff)]
+        self._consts = csp.globals
+
+    def infer(
+        self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
+    ) -> Optional[DomainSet[Value]]:
+
+        domains = DomainSetMut(assign >> ctx)
+        change = True
+
+        # while domains keep being reduced or have been proven inconsistent
+        while change:
+            change = False
+
+            for alldiff in self._consts:
+
+                revised_domains, reduced = self(
+                    constraint=alldiff, domains=domains
+                )
+
+                if revised_domains is None:
+                    return None
+
+                domains = DomainSetMut(revised_domains)
+                change |= reduced
+
+        return domains.ds
 
     # TODO: check - should run in O(m*sqrt(n))
     # TODO: impl Inference
@@ -199,12 +226,13 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         self,
         constraint: AllDiff[Variable, Value],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
-    ) -> Optional[DomainSet[Value]]:
+    ) -> Tuple[Optional[DomainSet[Value]], bool]:
         """
         Infer inconsistent domain values in given global `AllDiff` constraint.
 
         Returns reduced domains or `None` if the current `domains` are
-        inconsistent with the `constraint`.
+        inconsistent with the `constraint`, and a flag indicating whether any
+        domain has been reduced.
 
         [source](https://www.andrew.cmu.edu/user/vanhoeve/papers/alldiff.pdf)
          - Algorithm 2 on page 24 (see description on page 23)
@@ -250,7 +278,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         )
 
         if len(matching) < graph.n_vars:
-            return None
+            return None, False
 
         inconsistent = self._remove_inconsitent(
             n=graph.n_vars,
@@ -263,9 +291,9 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
             domain = revised_domains[graph.var(i)]
             domain.remove(graph.val(j))
             if not domain:
-                return None
+                return None, True
 
-        return revised_domains
+        return revised_domains, bool(inconsistent)
 
     @classmethod
     def _remove_inconsitent(

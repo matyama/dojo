@@ -2,7 +2,7 @@ from functools import partial
 from typing import Iterable, List, Optional, Sequence
 
 from csp.heuristics import MRV, LeastConstraining
-from csp.inference import AC3
+from csp.inference import AC3, AllDiffInference
 from csp.model import CSP, Assign, AssignCtx
 from csp.scc import strongly_connected_components
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
@@ -22,6 +22,9 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
 
 def _split(csp: CSP[Variable, Value]) -> List[CSP[Variable, Value]]:
+    # TODO: take into account global consts and split those as well if possible
+    if csp.globals:
+        return [csp]
     const_graph = [list(ys.keys()) for ys in csp.consts]
     scc = strongly_connected_components(graph=const_graph)
 
@@ -48,7 +51,9 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
     next_var = MRV[Value](consts=[cs.keys() for cs in csp.consts])
     sort_domain = LeastConstraining[Variable, Value](csp)
-    inference_engine = AC3(csp)
+    binary_inference = AC3(csp)
+    # TODO: generalize AllDiff => GlobalConst
+    global_inference = AllDiffInference(csp)
 
     def backtracking_search(
         ctx: AssignCtx[Value],
@@ -66,11 +71,22 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
                 ctx.assignment[var] = val
+                assign = Assign(var, val)
 
-                # Infer feasible domains that are arc-consistent using AC3
-                revised_domains = inference_engine.infer(
-                    assign=Assign(var, val), ctx=domains
-                )
+                # XXX: if there are no global constraints this unnecessarily
+                #      shallow-copies domains => skip
+
+                # Infer feasible domains that are hyper-arc consistent
+                revised_domains = global_inference.infer(assign, ctx=domains)
+
+                if revised_domains is not None:
+                    # XXX: could pass in revised_domains as mut
+
+                    # Infer feasible domains that are arc-consistent using AC3
+                    revised_domains = binary_inference.infer(
+                        assign, ctx=revised_domains
+                    )
+                    # TODO: this could in reverse induce change in globals
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:

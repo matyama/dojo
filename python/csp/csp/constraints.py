@@ -3,7 +3,18 @@ from abc import abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import combinations
-from typing import Callable, Generic, Iterable, List, Protocol, Tuple
+from typing import (
+    Callable,
+    FrozenSet,
+    Generic,
+    Iterable,
+    List,
+    Mapping,
+    Protocol,
+    Sequence,
+    Set,
+    Tuple,
+)
 
 from csp.types import (
     Arc,
@@ -11,6 +22,7 @@ from csp.types import (
     NumValue,
     Ord,
     OrdValue,
+    Transform,
     Value,
     Variable,
     VarTransform,
@@ -339,7 +351,9 @@ class Unary(Generic[Variable, Value]):
 
 # TODO: this is an ad-hoc definition - make some nice API
 class AllDiff(Generic[Variable, Value]):
-    xs: List[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
+    xs: Sequence[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
+    scope: FrozenSet[Variable]
+    tansforms: Mapping[Variable, Transform[Value]]
 
     def __init__(
         self,
@@ -348,8 +362,32 @@ class AllDiff(Generic[Variable, Value]):
         ],
     ) -> None:
         self.xs = xs if isinstance(xs, List) else list(xs)
+        self.scope = frozenset(self.iter_vars())
+        self.transforms = {
+            x.x: x.f for x in self.xs if isinstance(x, VarTransform)
+        }
 
-    # TODO: impl __call__, resp. _sat to be able to check for valid assignment
+    def __call__(self, assignment: Iterable[Tuple[Variable, Value]]) -> bool:
+        """
+        Returns True iff all values from `assignment`, restricted to variables
+        in the scope of this constraint, are different.
+        """
+        # restrict assignment to variables in the scope and collect values
+        num_relevant = 0
+        distinct: Set[Value] = set()
+        for x, v in assignment:
+            if x in self.scope:
+                num_relevant += 1
+                distinct.add(self._apply_transform(x, v))
+
+        # all relevant values must be different (partial assignment is ok)
+        return num_relevant == len(distinct)
+
+    def _apply_transform(self, x: Variable, v: Value) -> Value:
+        transform = self.transforms.get(x)
+        # NOTE: mypy cont't infer resulting type, hence the annotation
+        val: Value = transform(v) if transform is not None else v
+        return val
 
     def iter_vars(self) -> Iterable[Variable]:
         for x in self.xs:

@@ -122,16 +122,20 @@ class CSP(Generic[Variable, Value]):
     _vars: List[Variable]
     _doms: DomainSet[Value]
     _consts: List[Dict[Var, ConstSet[Variable, Value]]]
+    _global: List[AllDiff[Variable, Value]]
     # TODO: global constraints
+    #  - generalize from just `AllDiff` to `GlobalConst`
     #  - either a s `_globals: List[GlobalConst]` ... `_globals[x]` includes x
     #  - or make a new dataclass ConstRef(x: Var, binary: Dict, global: List)
     #    and include these as elements of `_consts`
+    #  => probably better handled separately due to different inference methods
 
     def __init__(self) -> None:
         self._var_ids = {}
         self._vars = []
         self._doms = []
         self._consts = []
+        self._global = []
 
     # pylint: disable=too-many-branches
     def __iadd__(
@@ -180,8 +184,8 @@ class CSP(Generic[Variable, Value]):
 
         # TODO: generalize to global constraints
         elif isinstance(item, AllDiff):
-            for const in item.iter_binary():
-                self += const
+            # TODO: check if already exists (user calls 2x `csp += alldiff`)
+            self._global.append(item)
 
         elif isinstance(item, Iterable):
             for var_dom in item:
@@ -219,6 +223,11 @@ class CSP(Generic[Variable, Value]):
     @property
     def consts(self) -> Sequence[Mapping[Var, ConstSet[Variable, Value]]]:
         return self._consts
+
+    # TODO: generalize AllDiff => GlobalConst
+    @property
+    def globals(self) -> Sequence[AllDiff[Variable, Value]]:
+        return self._global
 
     # XXX: used only in tests
     # TODO: could used slicing operator => csp[x:y] ...or use it for `arc`
@@ -295,6 +304,14 @@ class CSP(Generic[Variable, Value]):
 
         Note: Re-assignment of a variable is considered consistent.
         """
+        # globally consistent
+        assignment = {self.variable(i): v for i, v in a.items()}
+        assignment[self.variable(x)] = x_val
+
+        if not all(c(assignment.items()) for c in self._global):
+            return False
+
+        # binary consistent
         return all(
             c(self.arc(x, y), x_val, y_val)
             for y, c in self._consts[x].items()
