@@ -11,7 +11,7 @@ fmt:
 
 lint:
 	flake8 .
-	pylint csp tests examples
+	pylint benchmarks csp tests examples
 	mypy .
 
 tests:

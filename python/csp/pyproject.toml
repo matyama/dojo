@@ -22,6 +22,7 @@ flake8-pytest = "*"
 mypy = "*"
 pylint = "*"
 pytest = "*"
+scalene = "*"
 
 [tool.black]
 line-length = 79

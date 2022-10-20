@@ -20,13 +20,17 @@ Y = TypeVar("Y")
 Edge: TypeAlias = Tuple[X, Y]
 
 
-# XXX: solve by / generalize to max-flow
-#  - Ford-Fulkerson: O(mn)
-#  - pros: can easily be generalized to alldiff with cardinalities
-# XXX: complexity BFS/DFS: O(|xs+ys|*|edges|)
 def max_bipartite_matching(
     xs: Sequence[X], ys: Sequence[Y], edges: Set[Edge[X, Y]]
 ) -> Set[Edge[X, Y]]:
+    """
+    Find a maximum matching in given bipartite graph `G = (xs, ys, edges)`.
+
+    Note that the implementation is a DFS - essentially simplified
+    Ford-Fulkerson max-flow algorithm, adapted to bipartite graphs.
+
+    Complexity (worst-case): `O(|xs+ys|*|edges|)`
+    """
 
     # matching[j] = x if (x, ys[j]) in max_matching else None
     matching: List[Optional[X]] = [None] * len(ys)
@@ -52,10 +56,12 @@ def hopcroft_karp(
 ) -> Set[Edge[X, Y]]:
     """
     Hopcroft & Karp (1973):
-     - Input: bipartite graph G = (xs, ys, edges defined by adj)
+     - Input: bipartite graph `G = (xs, ys, <edges defined by adj>)`
      - Output: edges in a maximum matching
      - Complexity (worst-case): `O(|edges|*sqrt(|xs + ys|))`
      - [wiki](https://en.wikipedia.org/wiki/Hopcroft%E2%80%93Karp_algorithm)
+
+    Note that `adj` list is given as a mapping `<xs index> -> <indices to ys>`.
     """
 
     nil = 0
@@ -63,11 +69,11 @@ def hopcroft_karp(
 
     m = len(xs)
 
+    # NOTE: +/- 1 shifts due to nil = 0
     pair_u = [nil] * (m + 1)
     pair_v = [nil] * (len(ys) + 1)
     dist = [0] * (m + 1)
 
-    # NOTE: +/- 1 shifts due to nil = 0
     def iter_adj(u: int) -> Iterable[int]:
         assert u != nil
         for v in adj[u - 1]:
@@ -108,11 +114,10 @@ def hopcroft_karp(
         dist[u] = inf
         return False
 
-    matching = set()
     queue: Deque[int] = deque(maxlen=m + 1)
     while bfs(queue):
         for u in range(1, m + 1):
-            if pair_u[u] == nil and dfs(u):
-                matching.add((xs[u - 1], ys[pair_u[u] - 1]))
+            if pair_u[u] == nil:
+                dfs(u)
 
-    return matching
+    return {(xs[u], ys[v - 1]) for u, v in enumerate(pair_u[1:]) if v != nil}

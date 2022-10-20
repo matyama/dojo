@@ -88,3 +88,14 @@ Additionally, it passes `flake8` and `pylint` checks.
  - CSP instance is homogeneous in its variable and value type, meaning that if
    one uses for instance the `Linear` constraint, the `Value` type must be an
    instnce of `Num` even though only a subset of variables is involved.
+
+
+# Benchmarks
+Profiling scripts and benchmarks can be found in directory/module `benchmarks`.
+
+One can use the optional dependecy
+[`scalene`](https://github.com/plasma-umass/scalene) to run them for instance as
+follows:
+```console
+scalene --cli --cpu-only --profile-only='bench_' benchmarks/bench_matching.py
+```

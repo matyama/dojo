@@ -238,8 +238,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         edges: Set[Tuple[int, int]],
         matching: Set[Tuple[int, int]],
     ) -> Set[Tuple[int, int]]:
-        # construct DAG G_M, while marking all arcs not in M as unused
-        #  - nodes = xs ++ ys: O(n + m)
+        # construct directed G_M = (xs + ys, edges with reversed e not in M)
         #  => variable if node < n else value
         graph: List[List[int]] = [[] for _ in range(n + n_vals)]
         # XXX: is this really the best approach?
@@ -247,6 +246,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         free = set(range(len(graph)))
 
         # TODO: consider modifying edges inplace
+        # mark all arcs not in M as unused
         edges = edges - matching
 
         # x -> v if (x, v) in M else v -> x

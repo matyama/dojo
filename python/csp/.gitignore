@@ -134,3 +134,6 @@ poetry.lock
 
 # IDEs
 .vscode/
+
+# Scalene
+**/profile.json
