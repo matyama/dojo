@@ -1,5 +1,6 @@
 from abc import abstractmethod
 from collections import deque
+from dataclasses import dataclass
 from typing import (
     Generic,
     Iterable,
@@ -15,7 +16,7 @@ from typing import (
 
 from csp.bfs import bfs
 from csp.constraints import AllDiff, BinConst
-from csp.matching import max_bipartite_matching
+from csp.matching import hopcroft_karp
 from csp.model import CSP, Assign
 from csp.scc import tarjan_scc
 from csp.types import (
@@ -137,21 +138,52 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         )
 
 
-# Resources:
-#  - https://en.wikipedia.org/wiki/Matching_(graph_theory)
-#  - https://en.wikipedia.org/wiki/Maximally-matchable_edge
-#  - https://doi.org/10.1016%2Fj.tcs.2011.12.071
-#  - alldiff.pdf: https://www.andrew.cmu.edu/user/vanhoeve/papers/alldiff.pdf
-#  - alldiff.pdf, p. 23 (description), p. 24 (Algorithm 2)
-#    - dag G_M = (X \cup D_X, A) with arc set
-#      A = {(u, v) | (u, v) in M} \cup {(v, u) | (v, u) not in M}
-#    - vertex v is *M-free* if M does not cover v
+Edge: TypeAlias = Tuple[int, int]
 
 
-# TODO: check complexity (link alldiff arxiv): O(m*sqrt(n))
-#  - n ... number of variables involved in the alldiff constraint
-#  - m = \sum_{i=1}{n} |D_i|
-#  - i.e. m is the sum of domain sizes of the variables involved in the const.
+@dataclass(frozen=True)
+class ValueGraph(Generic[Value]):
+    xs: Sequence[Var]
+    vs: Sequence[Value]
+    edges: Set[Edge]
+    adj: Sequence[Sequence[int]]
+
+    @classmethod
+    def new(
+        cls,
+        xs: Sequence[Var],
+        ds: Sequence[Domain[Value]],
+    ) -> "ValueGraph[Value]":
+        vs = list({v for d in ds for v in d})
+        vals = {v: j for j, v in enumerate(vs)}
+
+        edges: Set[Edge] = set()
+        adj: List[List[int]] = []
+        for i, x in enumerate(xs):
+            adj_x: List[int] = []
+            domain = ds[x]
+            for v in domain:
+                adj_x.append(vals[v])
+                edges.add((i, vals[v]))
+            adj.append(adj_x)
+
+        return cls(xs, vs, edges, adj)
+
+    @property
+    def n_vars(self) -> int:
+        return len(self.xs)
+
+    @property
+    def n_vals(self) -> int:
+        return len(self.vs)
+
+    def var(self, i: int) -> Var:
+        return self.xs[i]
+
+    def val(self, j: int) -> Value:
+        return self.vs[j]
+
+
 class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._vars = csp.vars
@@ -168,6 +200,28 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         constraint: AllDiff[Variable, Value],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
     ) -> Optional[DomainSet[Value]]:
+        """
+        Infer inconsistent domain values in given global `AllDiff` constraint.
+
+        Returns reduced domains or `None` if the current `domains` are
+        inconsistent with the `constraint`.
+
+        [source](https://www.andrew.cmu.edu/user/vanhoeve/papers/alldiff.pdf)
+         - Algorithm 2 on page 24 (see description on page 23)
+         - Goal: identify edges in **any** maximum matching in (X & D(X), E):
+            1. find a maximum matching covering X
+            1. compute even alternating cycles
+            1. compute even alternating paths which begin at a free vertex
+
+        Complexity: `O(m*sqrt(n))` where
+         - `n` is the number of variables involved in the alldiff `constraint`
+         - `m = sum_i |D_i|`, i.e. `m` is the sum of domain sizes of the
+           variables involved in the `constraint`
+
+        Note: Current implementation does not use incremental checking as
+        mentioned in the paper. We rather always build new value graph and
+        recompute maximum matching from scratch.
+        """
 
         # O(m) in case domains must be copied
         match domains:
@@ -176,29 +230,11 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
             case ds:
                 revised_domains = [d.copy() for d in ds]
 
-        # O(n + m)
-        xs = [self._vars[x] for x in constraint.iter_vars()]
-        vs = list({v for d in revised_domains for v in d})
-        vals = {v: j for j, v in enumerate(vs)}
-
         # build value graph G = (X, D(X), E):  O(TODO)
-        # XXX: mypy issue
-        # edges = {
-        #    (i, val_ids[v])
-        #    for i, x in enumerate(xs)
-        #    for d in revised_domains[x]
-        #    for v in d
-        # }
-        edges = set()
-        # XXX: remvoe adj if unused [relevant for hopcroft_karp]
-        # adj = []
-        for i, x in enumerate(xs):
-            # adj_x = []
-            domain = revised_domains[x]
-            for v in domain:
-                # adj_x.append(vals[v])
-                edges.add((i, vals[v]))
-            # adj.append(adj_x)
+        graph = ValueGraph.new(
+            xs=[self._vars[x] for x in constraint.iter_vars()],
+            ds=revised_domains,
+        )
 
         # XXX: idea - class Edge(i, j, consistent: bool) => mark in-place
         #  1. matching: (i, j) in M => consistent
@@ -209,22 +245,23 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         #  3. walk inconsistent edges => filter domains
 
         # compute maximum matching M in G
-        #  - TODO: complexity
-        matching = max_bipartite_matching(
-            xs=range(len(xs)), ys=range(len(vs)), edges=edges
+        matching = hopcroft_karp(
+            xs=range(graph.n_vars), ys=range(graph.n_vals), adj=graph.adj
         )
 
-        if len(matching) < len(xs):
+        if len(matching) < graph.n_vars:
             return None
 
-        edges = self._remove_inconsitent(
-            n=len(xs), n_vals=len(vs), edges=edges, matching=matching
+        inconsistent = self._remove_inconsitent(
+            n=graph.n_vars,
+            n_vals=graph.n_vals,
+            edges=graph.edges,
+            matching=matching,
         )
 
-        # O(TODO) loop
-        for i, j in edges:
-            domain = revised_domains[xs[i]]
-            domain.remove(vs[j])
+        for i, j in inconsistent:
+            domain = revised_domains[graph.var(i)]
+            domain.remove(graph.val(j))
             if not domain:
                 return None
 
@@ -235,9 +272,9 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         cls,
         n: int,
         n_vals: int,
-        edges: Set[Tuple[int, int]],
-        matching: Set[Tuple[int, int]],
-    ) -> Set[Tuple[int, int]]:
+        edges: Set[Edge],
+        matching: Set[Edge],
+    ) -> Set[Edge]:
         # construct directed G_M = (xs + ys, edges with reversed e not in M)
         #  => variable if node < n else value
         graph: List[List[int]] = [[] for _ in range(n + n_vals)]
@@ -259,8 +296,6 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         for i, j in edges:
             graph[j + n].append(i)
 
-        # XXX: check duplicated nodes in graph's adj. lists
-
         # Runs in O(n + m) - Tarjan
         scc = tarjan_scc(graph)
 
@@ -269,7 +304,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         #    M-alternating circuit in G, and are marked as "consistent".
         #  - i.e. this leaves unmarked only the arcs _between_ components
 
-        # XXX: cloning unused just to remove is really sad
+        # XXX: cloning all unused edges just to remove some is really sad
         for i, j in list(edges):
             if scc[i] == scc[j + n]:
                 edges.remove((i, j))
@@ -287,16 +322,3 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
         # return unused
         return edges
-
-
-# Identify edges in **any** max. matching (A \cup B, E):
-#  1. find a max matching covering A
-#  2. compute even alternating paths which begin at a free vertex
-#  3. compute even alternating cycles
-#
-# alternating path ~ a path that begins with an unmatched vertex and whose
-#                    edges belong alternately to the matching and not
-#
-# augmenting path ~ an alternating path that starts from and ends on free v.
-
-# TODO: imple GAC-3(G) from Bartak, lecture 08 (?) => general n-ary const alg

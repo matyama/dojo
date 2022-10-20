@@ -118,6 +118,13 @@ def strongly_connected_components(graph: Graph) -> List[Component]:
 
 
 def tarjan_scc(graph: Graph) -> List[int]:
+    """
+    Finds SCC in the same way as `strongly_connected_components` but rather
+    than a set of components this function returns an inverse mapping
+    `<node_id> -> <component_id>`.
+
+    I.e. `x` and `y` are in the same SCC iff `component[x] == component[y]`.
+    """
     # XXX: this pre-alloc essentially doubles the work
     #  => represent Graph with Nodes => assign Node.scc_id inplace
     component = [0] * len(graph)

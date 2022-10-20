@@ -10,7 +10,7 @@ def bfs_walk(
     graph: Graph,
     init: Node,
     queue: Optional[Deque[Node]] = None,
-) -> Iterable[Tuple[int, int]]:
+) -> Iterable[Edge]:
     queue = queue if queue is not None else deque(maxlen=len(graph))
 
     queue.append(init)
