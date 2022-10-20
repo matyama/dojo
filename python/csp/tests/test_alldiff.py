@@ -73,12 +73,16 @@ def test_alldiff_inference(
     csp += alldiff
 
     inference = AllDiffInference(csp)
-    ds_alldiff, reduced = inference(constraint=alldiff, domains=ds)
+    ds_alldiff, reduced = inference(domains=ds)
     assert reduced
     assert ds_alldiff == expected
 
+    # replicate alldiff in the csp instance
+    for diff_const in alldiff.iter_binary():
+        csp += diff_const
+
     ac3 = AC3(csp)
-    ds_ac3 = ac3(arcs=ac3.arc_iter, domains=ds)
+    ds_ac3, _ = ac3(arcs=ac3.arc_iter, domains=ds)
     assert ds_ac3 is not None
 
     def count_vals(ds: DomainSet[int]) -> int:

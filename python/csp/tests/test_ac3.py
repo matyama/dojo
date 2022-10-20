@@ -91,7 +91,7 @@ def test_ac3(
     instance: CSP[str, int], expected: Optional[DomainSet[int]]
 ) -> None:
     ac3 = AC3(csp=instance)
-    revised_domains = ac3(arcs=ac3.arc_iter, domains=instance.domains)
+    revised_domains, _ = ac3(arcs=ac3.arc_iter, domains=instance.domains)
     assert revised_domains == expected
 
 

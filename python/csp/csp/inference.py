@@ -98,7 +98,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         self,
         arcs: Iterable[VarArc],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
-    ) -> Optional[DomainSet[Value]]:
+    ) -> Tuple[Optional[DomainSet[Value]], bool]:
         """
         Complexity: O(n^3 * d^2) where
           - n is the number of variables
@@ -112,6 +112,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
                 revised_domains = [set(d) for d in ds]
 
         queue = deque(arcs)
+        revised = False
 
         # O(n^2) iterations
         while queue:
@@ -123,19 +124,21 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
                 const_xy=self._consts[x][y],
             ):
                 if not revised_domains[x]:
-                    return None
+                    return None, True
                 # Add arcs (z, x) for all constraints x -> z for z other than y
                 queue.extend((z, x) for z in self._consts[x] if z != y)
+                revised = True
 
-        return revised_domains
+        return revised_domains, revised
 
     def infer(
         self, assign: Assign[Value], ctx: AC3Context[Value]
     ) -> Optional[DomainSet[Value]]:
-        return self(
+        revised_domains, _ = self(
             arcs=self.arc_iter,
             domains=DomainSetMut(assign >> ctx),
         )
+        return revised_domains
 
 
 Edge: TypeAlias = Tuple[int, int]
@@ -193,27 +196,36 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
     def infer(
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
     ) -> Optional[DomainSet[Value]]:
+        revised_domains, _ = self(domains=DomainSetMut(assign >> ctx))
+        return revised_domains
 
-        domains = DomainSetMut(assign >> ctx)
+    def __call__(
+        self,
+        domains: Sequence[Domain[Value]] | DomainSetMut[Value],
+    ) -> Tuple[Optional[DomainSet[Value]], bool]:
+
+        if not isinstance(domains, DomainSetMut):
+            domains = DomainSetMut([d.copy() for d in domains])
+
+        revised = False
         change = True
 
         # while domains keep being reduced or have been proven inconsistent
         while change:
             change = False
 
-            for alldiff in self._consts:
+            for c in self._consts:
 
-                revised_domains, reduced = self(
-                    constraint=alldiff, domains=domains
-                )
+                revised_domains, reduced = self.infer_alldiff(c, domains)
+                revised |= reduced
 
                 if revised_domains is None:
-                    return None
+                    return None, revised
 
                 domains = DomainSetMut(revised_domains)
                 change |= reduced
 
-        return domains.ds
+        return domains.ds, revised
 
     # TODO: check - should run in O(m*sqrt(n))
     # TODO: impl Inference
@@ -222,7 +234,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
     #  - CSP containts other contraints => domains change => update G/M
     #  - make use of current value graph and current max matching to compute a
     #    new max matching
-    def __call__(
+    def infer_alldiff(
         self,
         constraint: AllDiff[Variable, Value],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
@@ -350,3 +362,44 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
         # return unused
         return edges
+
+
+class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
+
+    # TODO: possibly add flag/int `iterative` => if false then do just one iter
+    def __init__(self, csp: CSP[Variable, Value]) -> None:
+        self._binary = AC3(csp)
+        self._global = AllDiffInference(csp)
+        # TODO: generalize AllDiff => GlobalConst
+
+    def infer(
+        self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
+    ) -> Optional[DomainSet[Value]]:
+        domains = DomainSetMut(assign >> ctx)
+        reduced = True
+
+        # alternate between global and binary inference till domains stabilize
+        while reduced:
+
+            # Infer feasible domains that are hyper-arc consistent
+            revised_domains, reduced = self._global(domains)
+
+            if revised_domains is None:
+                return None
+
+            domains = DomainSetMut(revised_domains)
+
+            if not reduced:
+                break
+
+            # Infer feasible domains that are arc-consistent using AC3
+            revised_domains, reduced = self._binary(
+                arcs=self._binary.arc_iter, domains=domains
+            )
+
+            if revised_domains is None:
+                return None
+
+            domains = DomainSetMut(revised_domains)
+
+        return domains.ds
