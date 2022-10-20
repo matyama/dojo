@@ -103,6 +103,7 @@ def strongly_connected_components(graph: Graph) -> List[Component]:
     """
     Finds strongly connected components of given directed graph using Tarjan's
     SCC algorithm.
+
     Runs in O(|V| + |E|) worst-case time where |V| is the number of nodes and
     |E| the number of edges in the graph.
     """
@@ -114,3 +115,17 @@ def strongly_connected_components(graph: Graph) -> List[Component]:
             components.extend(search.find_scc(n))
 
     return components
+
+
+def tarjan_scc(graph: Graph) -> List[int]:
+    # XXX: this pre-alloc essentially doubles the work
+    #  => represent Graph with Nodes => assign Node.scc_id inplace
+    component = [0] * len(graph)
+
+    # TODO: extend Node with scc_id and assign in _stack_pop instead
+    #   => single graph traversal
+    for scc_id, nodes in enumerate(strongly_connected_components(graph)):
+        for n in nodes:
+            component[n] = scc_id
+
+    return component

@@ -338,9 +338,8 @@ class Unary(Generic[Variable, Value]):
 
 
 # TODO: this is an ad-hoc definition - make some nice API
-# TODO: don't convert to binary consts, solve as a matching problem (X, Vals)
 class AllDiff(Generic[Variable, Value]):
-    xs: Iterable[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
+    xs: List[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
 
     def __init__(
         self,
@@ -348,7 +347,18 @@ class AllDiff(Generic[Variable, Value]):
             Variable | HasVar[Variable] | VarTransform[Variable, Value]
         ],
     ) -> None:
-        self.xs = xs
+        self.xs = xs if isinstance(xs, List) else list(xs)
+
+    # TODO: impl __call__, resp. _sat to be able to check for valid assignment
+
+    def iter_vars(self) -> Iterable[Variable]:
+        for x in self.xs:
+            if isinstance(x, HasVar):
+                yield x.var
+            elif isinstance(x, VarTransform):
+                yield x.x
+            else:
+                yield x
 
     def iter_binary(self) -> Iterable[Different[Variable, Value]]:
         for x, y in combinations(self.xs, 2):

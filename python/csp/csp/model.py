@@ -213,6 +213,10 @@ class CSP(Generic[Variable, Value]):
         return self._vars
 
     @property
+    def vars(self) -> Mapping[Variable, Var]:
+        return self._var_ids
+
+    @property
     def consts(self) -> Sequence[Mapping[Var, ConstSet[Variable, Value]]]:
         return self._consts
 
