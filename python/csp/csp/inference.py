@@ -2,9 +2,11 @@ from abc import abstractmethod
 from collections import deque
 from dataclasses import dataclass
 from typing import (
+    Dict,
     Generic,
     Iterable,
     List,
+    Mapping,
     Optional,
     Protocol,
     Sequence,
@@ -24,6 +26,7 @@ from csp.types import (
     Domain,
     DomainSet,
     DomainSetMut,
+    Transform,
     Value,
     Var,
     VarArc,
@@ -146,31 +149,68 @@ Edge: TypeAlias = Tuple[int, int]
 
 @dataclass(frozen=True)
 class ValueGraph(Generic[Value]):
+    """
+    Bipartite graph G = (xs + vs, edges)
+
+    Attributes:
+      - `xs`: set of variables
+      - `vs`: set of values (after transformations): `vs[j] = f(vs_dom[i][j])`
+      - `vs_dom`: set of domain values (before transformation):
+        `f(vs_dom[i][j]) = vs[j]`
+      - `edges`: `(i, j) in edges` iff `vs[j] = f(vs_dom[i][j])` and
+        `vs_dom[i][j] in dom(xs[i])`
+      - `adj`: adjacency list correspoding to edges:
+        `(i, j) in edges => j in adj[i]`
+    """
+
     xs: Sequence[Var]
     vs: Sequence[Value]
+    vs_dom: Mapping[Edge, Value]
     edges: Set[Edge]
     adj: Sequence[Sequence[int]]
 
+    # FIXME: too-many-locals
     @classmethod
     def new(
         cls,
-        xs: Sequence[Var],
+        xs: Sequence[Tuple[Var, Optional[Transform[Value]]]],
         ds: Sequence[Domain[Value]],
     ) -> "ValueGraph[Value]":
-        vs = list({v for d in ds for v in d})
+
+        vs = cls._values(xs, ds)
         vals = {v: j for j, v in enumerate(vs)}
 
+        vs_dom: Dict[Edge, Value] = {}
         edges: Set[Edge] = set()
         adj: List[List[int]] = []
-        for i, x in enumerate(xs):
+
+        for i, (x, f) in enumerate(xs):
             adj_x: List[int] = []
-            domain = ds[x]
-            for v in domain:
-                adj_x.append(vals[v])
-                edges.add((i, vals[v]))
+
+            for v_dom in ds[x]:
+                # TODO: f is re-evaluated here => cache under key (x, v_dom)
+                v = f(v_dom) if f is not None else v_dom
+                j = vals[v]
+                vs_dom[i, j] = v_dom
+                adj_x.append(j)
+                edges.add((i, j))
+
             adj.append(adj_x)
 
-        return cls(xs, vs, edges, adj)
+        return cls(
+            xs=[x for x, _ in xs], vs=vs, vs_dom=vs_dom, edges=edges, adj=adj
+        )
+
+    @classmethod
+    def _values(
+        cls,
+        xs: Sequence[Tuple[Var, Optional[Transform[Value]]]],
+        ds: Sequence[Domain[Value]],
+    ) -> List[Value]:
+        vs: Set[Value] = set()
+        for x, f in xs:
+            vs.update(map(f, ds[x]) if f is not None else ds[x])
+        return list(vs)
 
     @property
     def n_vars(self) -> int:
@@ -179,12 +219,6 @@ class ValueGraph(Generic[Value]):
     @property
     def n_vals(self) -> int:
         return len(self.vs)
-
-    def var(self, i: int) -> Var:
-        return self.xs[i]
-
-    def val(self, j: int) -> Value:
-        return self.vs[j]
 
 
 class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
@@ -272,7 +306,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
         # build value graph G = (X, D(X), E):  O(TODO)
         graph = ValueGraph.new(
-            xs=[self._vars[x] for x in constraint.iter_vars()],
+            xs=[(self._vars[x], f) for x, f in constraint.iter_transforms()],
             ds=revised_domains,
         )
 
@@ -300,8 +334,8 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         )
 
         for i, j in inconsistent:
-            domain = revised_domains[graph.var(i)]
-            domain.remove(graph.val(j))
+            domain = revised_domains[graph.xs[i]]
+            domain.remove(graph.vs_dom[i, j])
             if not domain:
                 return None, True
 
@@ -376,30 +410,46 @@ class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
     ) -> Optional[DomainSet[Value]]:
         domains = DomainSetMut(assign >> ctx)
-        reduced = True
+        revised = True
+
+        # print(f"inference start: {domains}")
+        num_vals_start = sum(len(d) for d in domains.ds)
 
         # alternate between global and binary inference till domains stabilize
-        while reduced:
+        while revised:
+            revised = False
 
             # Infer feasible domains that are hyper-arc consistent
             revised_domains, reduced = self._global(domains)
+            # print(f"G: reduced={reduced}, ds={revised_domains is None}")
 
             if revised_domains is None:
                 return None
 
             domains = DomainSetMut(revised_domains)
+            revised |= reduced
 
-            if not reduced:
-                break
+            # if not reduced:
+            #    print("breaking inference, not reduced after global")
+            #    # break
 
             # Infer feasible domains that are arc-consistent using AC3
             revised_domains, reduced = self._binary(
                 arcs=self._binary.arc_iter, domains=domains
             )
+            # print(
+            #    f"AC3: reduced={reduced}, null(ds)={revised_domains is None}"
+            # )
 
             if revised_domains is None:
                 return None
 
             domains = DomainSetMut(revised_domains)
+            revised |= reduced
+            # print(f"inference iteration: {'cont' if revised else 'stop'}")
 
+        num_vals_end = sum(len(d) for d in domains.ds)
+        removed_vals = num_vals_start - num_vals_end
+        print(f"inference: {removed_vals} removed")
+        # print(f"inference end ({removed_vals} removed): {domains}")
         return domains.ds

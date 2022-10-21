@@ -1,3 +1,5 @@
+import sys
+from collections import Counter
 from functools import partial
 from typing import Iterable, List, Optional, Sequence
 
@@ -11,10 +13,18 @@ from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 # TODO: API features
 #  - new parames: `inference_engine: Inference[...]`, `next_val: ...`
 def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
+
+    # TODO: contextualize this (decorator / ctx manager)
+    #  - https://stackoverflow.com/a/50120316
+    old_rec_limit = sys.getrecursionlimit()
+    new_rec_limit = _estimate_recursion_depth(csp)
+    sys.setrecursionlimit(max(old_rec_limit, new_rec_limit))
+
     match _split(csp):
         case [orig]:
             return _solve(orig)
         case subs:
+            print(f">>> CSP intance split into {len(subs)} independent CSPs")
             # TODO: solve multiple independent CSPs in parallel
             solutions: Iterable[Solution[Variable, Value]] = map(_solve, subs)
             solution = {var: val for s in solutions for var, val in s.items()}
@@ -49,26 +59,36 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     consistent = partial(CSP[Variable, Value].consistent, csp)
     complete = partial(CSP[Variable, Value].complete, csp)
 
+    # FIXME: global constraints => not taken into account here
     next_var = MRV[Value](consts=[cs.keys() for cs in csp.consts])
     sort_domain = LeastConstraining[Variable, Value](csp)
     inference_engine = InferenceEngine(csp)
+
+    stats = Counter[str]()
+    stats["vars"] = csp.num_vars
+    stats["binary"] = sum(len(cs) for cs in csp.consts)
+    stats["global"] = len(csp.globals)
 
     def backtracking_search(
         ctx: AssignCtx[Value],
         domains: Sequence[Domain[Value]],
     ) -> Optional[Assignment[Value]]:
+        stats["states"] += 1
 
         if complete(ctx.assignment):
             return ctx.assignment
 
         var = next_var(ctx.unassigned, domains)
         ctx.unassigned[var] = False
+        # print(f">>> selected var={var}")
 
         for val in sort_domain(var, domains, ctx.unassigned):
 
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
+                # print(f"x{var} := {val} >> {ctx.assignment}")
                 ctx.assignment[var] = val
+                stats["inferences"] += 1
 
                 # Infer feasible domains
                 revised_domains = inference_engine.infer(
@@ -80,8 +100,13 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
                     assignment = backtracking_search(ctx, revised_domains)
                     if assignment is not None:
                         return assignment
+                else:
+                    stats["pruned"] += 1
+                    # print(f">>> PRUNED: x{var} := {val} => inconsistent")
 
                 del ctx.assignment[var]
+            else:
+                stats["inconsistent"] += 1
 
         ctx.unassigned[var] = True
         return None
@@ -92,4 +117,13 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         domains=csp.domains,
     )
 
+    # TODO: rather return as an extra part of the output
+    print(stats)
+
     return csp.as_solution(assignment) if assignment is not None else {}
+
+
+def _estimate_recursion_depth(csp: CSP[Variable, Value]) -> int:
+    n_vars = csp.num_vars
+    n_vals = len({v for d in csp.domains for v in d})
+    return 2 * (n_vars + n_vals)

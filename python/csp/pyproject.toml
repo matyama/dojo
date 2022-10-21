@@ -22,6 +22,7 @@ flake8-pytest = "*"
 mypy = "*"
 pylint = "*"
 pytest = "*"
+pytest-timeouts = "*"
 scalene = "*"
 
 [tool.black]

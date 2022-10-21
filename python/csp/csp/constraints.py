@@ -10,6 +10,7 @@ from typing import (
     Iterable,
     List,
     Mapping,
+    Optional,
     Protocol,
     Sequence,
     Set,
@@ -397,6 +398,17 @@ class AllDiff(Generic[Variable, Value]):
                 yield x.x
             else:
                 yield x
+
+    def iter_transforms(
+        self,
+    ) -> Iterable[Tuple[Variable, Optional[Transform[Value]]]]:
+        for x in self.xs:
+            if isinstance(x, HasVar):
+                yield x.var, None
+            elif isinstance(x, VarTransform):
+                yield x.x, x.f
+            else:
+                yield x, None
 
     def iter_binary(self) -> Iterable[Different[Variable, Value]]:
         for x, y in combinations(self.xs, 2):

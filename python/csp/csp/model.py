@@ -1,3 +1,4 @@
+import os
 from abc import abstractmethod
 from dataclasses import dataclass
 from typing import (
@@ -123,19 +124,23 @@ class CSP(Generic[Variable, Value]):
     _doms: DomainSet[Value]
     _consts: List[Dict[Var, ConstSet[Variable, Value]]]
     _global: List[AllDiff[Variable, Value]]
+    _scoped_global: List[List[AllDiff[Variable, Value]]]
     # TODO: global constraints
     #  - generalize from just `AllDiff` to `GlobalConst`
     #  - either a s `_globals: List[GlobalConst]` ... `_globals[x]` includes x
     #  - or make a new dataclass ConstRef(x: Var, binary: Dict, global: List)
     #    and include these as elements of `_consts`
     #  => probably better handled separately due to different inference methods
+    _binary_only: bool
 
-    def __init__(self) -> None:
+    def __init__(self, binary_only: bool = False) -> None:
         self._var_ids = {}
         self._vars = []
         self._doms = []
         self._consts = []
         self._global = []
+        self._scoped_global = []
+        self._binary_only = bool(os.environ.get("BINARY_ONLY", binary_only))
 
     # pylint: disable=too-many-branches
     def __iadd__(
@@ -166,6 +171,7 @@ class CSP(Generic[Variable, Value]):
                 self._vars.append(x)
                 self._doms.append(d)
                 self._consts.append({})
+                self._scoped_global.append([])
 
                 assert len(self._consts) == len(self._vars)
 
@@ -184,8 +190,15 @@ class CSP(Generic[Variable, Value]):
 
         # TODO: generalize to global constraints
         elif isinstance(item, AllDiff):
-            # TODO: check if already exists (user calls 2x `csp += alldiff`)
-            self._global.append(item)
+            if self._binary_only:
+                # TODO: transforming other global constraints is not so simple
+                for c in item.iter_binary():
+                    self += c
+            else:
+                # TODO: check if item already exists between globals
+                self._global.append(item)
+                for x in map(self.var, item.scope):
+                    self._scoped_global[x].append(item)
 
         elif isinstance(item, Iterable):
             for var_dom in item:
@@ -305,10 +318,13 @@ class CSP(Generic[Variable, Value]):
         Note: Re-assignment of a variable is considered consistent.
         """
         # globally consistent
+
+        # TODO: assignment = itertools.chain([assign], map(..., a.items()))
+        #  - if re-assignment is not possible, otherwise leave this
         assignment = {self.variable(i): v for i, v in a.items()}
         assignment[self.variable(x)] = x_val
 
-        if not all(c(assignment.items()) for c in self._global):
+        if not all(c(assignment.items()) for c in self._scoped_global[x]):
             return False
 
         # binary consistent
