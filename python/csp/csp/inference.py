@@ -324,7 +324,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         )
 
         if len(matching) < graph.n_vars:
-            return None, False
+            return None, True
 
         inconsistent = self._remove_inconsitent(
             n=graph.n_vars,
@@ -412,44 +412,28 @@ class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
         domains = DomainSetMut(assign >> ctx)
         revised = True
 
-        # print(f"inference start: {domains}")
-        num_vals_start = sum(len(d) for d in domains.ds)
-
         # alternate between global and binary inference till domains stabilize
         while revised:
             revised = False
 
             # Infer feasible domains that are hyper-arc consistent
             revised_domains, reduced = self._global(domains)
-            # print(f"G: reduced={reduced}, ds={revised_domains is None}")
 
             if revised_domains is None:
                 return None
 
             domains = DomainSetMut(revised_domains)
             revised |= reduced
-
-            # if not reduced:
-            #    print("breaking inference, not reduced after global")
-            #    # break
 
             # Infer feasible domains that are arc-consistent using AC3
             revised_domains, reduced = self._binary(
                 arcs=self._binary.arc_iter, domains=domains
             )
-            # print(
-            #    f"AC3: reduced={reduced}, null(ds)={revised_domains is None}"
-            # )
 
             if revised_domains is None:
                 return None
 
             domains = DomainSetMut(revised_domains)
             revised |= reduced
-            # print(f"inference iteration: {'cont' if revised else 'stop'}")
 
-        num_vals_end = sum(len(d) for d in domains.ds)
-        removed_vals = num_vals_start - num_vals_end
-        print(f"inference: {removed_vals} removed")
-        # print(f"inference end ({removed_vals} removed): {domains}")
         return domains.ds

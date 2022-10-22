@@ -3,26 +3,34 @@ from csp.model import CSP
 
 
 def test_mrv() -> None:
-    x, y, z, w = 0, 1, 2, 3
+    csp = CSP[str, int]()
 
-    # note: x: {z, w} => x: |{z}| because remaining[w] = False
-    consts = [{z, w}, {z}, {x, y}, {x}]
-
-    next_val = MRV[int](consts)
+    xs = [csp["x"], csp["y"], csp["z"], csp["w"]]
+    x, y, z, w = xs
 
     domains = [{1}, {1, 2}, {1}, {1}]
     remaining = [True, True, True, False]
 
+    csp += zip(xs, domains)
+
+    # note: x: {z, w} => x: |{z}| because remaining[w] = False
+    csp += (x > z) & (x != w)
+    csp += y > z
+    csp += (z < x) & (z < y)
+    csp += w != x
+    # note: consts = [{z, w}, {z}, {x, y}, {x}]
+
+    next_val = MRV[str, int](csp)
+
     # (<var>, <domain size>, <no. unassigned neighbors>)
     # note: w not included because remaining[w] = Falase
     # min [(x, 1, -1), (y, 2, -1), (z, 1, -2)] = (z, 1, -2)
-    assert next_val(remaining, domains) == z
+    assert next_val(remaining, domains) == csp.var(z)
 
 
 def test_least_constraining_domain_sort() -> None:
 
     csp = CSP[str, int]()
-    sort_domain = LeastConstraining(csp)
 
     xs = [csp["x"], csp["y"], csp["z"], csp["w"]]
     ds = [{1, 2, 3}, {1, 2, 3}, {2, 3, 4}, {2}]
@@ -31,6 +39,8 @@ def test_least_constraining_domain_sort() -> None:
     csp += zip(xs, ds)
 
     csp += (x >= y) & (x > z) & (x >= w)
+
+    sort_domain = LeastConstraining(csp)
 
     vals = sort_domain(
         x=csp.var("x"),

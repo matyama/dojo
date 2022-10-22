@@ -4,7 +4,7 @@ import pytest
 
 from csp.constraints import AllDiff
 from csp.inference import AC3, AllDiffInference
-from csp.model import CSP
+from csp.model import CSP, Assign
 from csp.types import DomainSet
 
 
@@ -89,3 +89,33 @@ def test_alldiff_inference(
         return sum(len(d) for d in ds)
 
     assert count_vals(ds_alldiff) < count_vals(ds_ac3)
+
+
+def test_alldiff_expr() -> None:
+
+    csp = CSP[str, int]()
+
+    n = 4
+
+    # 4-queens (queen ~ column, domain ~ rows)
+    xs = [csp[f"x{i}"] for i in range(n)]
+    ds = [set(range(n)) for _ in range(n)]
+
+    csp += zip(xs, ds)
+
+    # 4-queen constraints
+
+    # distinct rows
+    csp += AllDiff(xs)
+
+    # up diagonal (bottom-left -> top-right)
+    csp += AllDiff(xs[i] + i for i in range(n))
+
+    # down diagonal (top-left -> bottom-right)
+    csp += AllDiff(xs[i] - i for i in range(n))
+
+    inference = AllDiffInference(csp)
+    ds_reduced = inference.infer(assign=Assign(var=0, val=0), ctx=ds)
+
+    # XXX: shouldn't inference find infeasible x0 := 0 in one step?
+    assert ds_reduced == [{0}, {2, 3}, {1, 3}, {1, 2}]

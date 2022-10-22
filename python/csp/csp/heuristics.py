@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from operator import itemgetter
-from typing import AbstractSet, Generic, Iterable, Mapping, Protocol, Sequence
+from typing import Generic, Iterable, Mapping, Protocol, Sequence, Set
 
 from csp.constraints import ConstSet
 from csp.model import CSP
@@ -15,7 +15,7 @@ class VarSelect(Protocol, Generic[Value]):  # pylint: disable=R0903
         raise NotImplementedError
 
 
-class MRV(Generic[Value], VarSelect[Value]):  # pylint: disable=R0903
+class MRV(Generic[Variable, Value], VarSelect[Value]):  # pylint: disable=R0903
     """
     Min. remaining value (MRV) selection.
 
@@ -25,9 +25,16 @@ class MRV(Generic[Value], VarSelect[Value]):  # pylint: disable=R0903
 
     # domain size then most constraints
     _key = itemgetter(1, 2)
+    _consts: Sequence[Set[Var]]
 
-    def __init__(self, consts: Sequence[AbstractSet[Var]]) -> None:
-        self._consts = consts
+    def __init__(self, csp: CSP[Variable, Value]) -> None:
+        self._consts = [set(cs.keys()) for cs in csp.consts]
+        # TODO: compute degree on globals, don't turn them into binary
+        pairs = (b.vars for c in csp.globals for b in c.iter_binary())
+        for x_var, y_var in pairs:
+            x, y = csp.var(x_var), csp.var(y_var)
+            self._consts[x].add(y)
+            self._consts[y].add(x)
 
     def _active_degree(self, x: Var, remaining: Sequence[bool]) -> int:
         return len([y for y in self._consts[x] if remaining[y]])
@@ -77,7 +84,22 @@ class LeastConstraining(
 
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._vars = csp.variables
-        self._consts = csp.consts
+        # TODO: hack that works for alldiff but is inefficient and not general
+        # self._consts = csp.consts
+        consts = [
+            {y: ConstSet(x=c.x, y=c.y, cs=list(c.cs)) for y, c in cs.items()}
+            for cs in csp.consts
+        ]
+        bin_consts = (b for c in csp.globals for b in c.iter_binary())
+        for c in bin_consts:
+            x_var, y_var = c.vars
+            x, y = csp.var(x_var), csp.var(y_var)
+            acc = consts[x].get(y, ConstSet(x_var, y_var))
+            acc &= c
+            consts[x][y] = acc
+            consts[y][x] = acc
+
+        self._consts = consts
 
     def __call__(
         self,

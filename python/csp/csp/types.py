@@ -14,6 +14,11 @@ from typing import (
     runtime_checkable,
 )
 
+# TODO: conform to typeing best practices:
+#  - https://typing.readthedocs.io/en/latest/source/best_practices.html
+#  - specifically: `MyType | None` instead of `Optional` and `list[A]` etc.
+#  - see the following list: https://peps.python.org/pep-0585/#implementation
+
 
 # XXX: having to resort to `@runtime_checkable` is really sad
 #  - also it only checks presence of methods, not their signatures

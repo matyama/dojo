@@ -60,7 +60,7 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     complete = partial(CSP[Variable, Value].complete, csp)
 
     # FIXME: global constraints => not taken into account here
-    next_var = MRV[Value](consts=[cs.keys() for cs in csp.consts])
+    next_var = MRV[Variable, Value](csp)
     sort_domain = LeastConstraining[Variable, Value](csp)
     inference_engine = InferenceEngine(csp)
 
@@ -68,21 +68,31 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     stats["vars"] = csp.num_vars
     stats["binary"] = sum(len(cs) for cs in csp.consts)
     stats["global"] = len(csp.globals)
+    print(stats)
 
     def backtracking_search(
         ctx: AssignCtx[Value],
         domains: Sequence[Domain[Value]],
     ) -> Optional[Assignment[Value]]:
-        stats["states"] += 1
 
         if complete(ctx.assignment):
             return ctx.assignment
 
+        stats["states"] += 1
+
         var = next_var(ctx.unassigned, domains)
         ctx.unassigned[var] = False
-        # print(f">>> selected var={var}")
 
-        for val in sort_domain(var, domains, ctx.unassigned):
+        vals = list(sort_domain(var, domains, ctx.unassigned))
+        # print(
+        #    f"var={var}",
+        #    f"|A|={len(ctx.assignment)}",
+        #    # f"ds={domains}",
+        #    f"ord={vals}",
+        # )
+
+        # for val in sort_domain(var, domains, ctx.unassigned):
+        for val in vals:
 
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
@@ -90,19 +100,46 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
                 ctx.assignment[var] = val
                 stats["inferences"] += 1
 
+                # num_vals_start = sum(
+                #    len(d) for d in (Assign(var, val) >> domains)
+                # )
+
+                # XXX: 10-Queens => prunes init x0 := 0 even tho binary finds a
+                #      solution with this assignment => alldiff inference bug
+                #      => revised_domains is None ???
+                #      => after multiple iters: fails on |M| >= |X|
+                #          - due to missing value in some input domains
+                # even with single iteration: x0 := 0 => revised_domains
+                #  - compared to binary, missing some values => unsound infer
+                #  - e.g. 1: 3, 5: 2
+                #
+                # but alldiff inference works on examples from papers, so the
+                # issue is probably on the side of VarTransofrm
+                #  - Queens => debug => 1st alldiff(xs) looks fine
+                #    (for x0 := 0 filters 0 from all other domains)
+                #  - TODO: debug the other two constraints (i.e. with f)
+
                 # Infer feasible domains
                 revised_domains = inference_engine.infer(
                     assign=Assign(var, val), ctx=domains
                 )
+                # print(f">>> revised [x{var} := {val}]: {revised_domains}")
+
+                # num_vals_end = sum(len(d) for d in revised_domains or [])
+                # stats["revised"] += num_vals_start - num_vals_end
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:
+                    # print(f">>> searching deeper with x{var} := {val}")
                     assignment = backtracking_search(ctx, revised_domains)
                     if assignment is not None:
                         return assignment
+
+                    stats["backtracks"] += 1
+                    # print(f">>> backtracking from x{var} := {val}")
                 else:
                     stats["pruned"] += 1
-                    # print(f">>> PRUNED: x{var} := {val} => inconsistent")
+                    # print(f">>> PRUNED: x{var} := {val}")
 
                 del ctx.assignment[var]
             else:
@@ -118,6 +155,7 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     )
 
     # TODO: rather return as an extra part of the output
+    print(assignment)
     print(stats)
 
     return csp.as_solution(assignment) if assignment is not None else {}
