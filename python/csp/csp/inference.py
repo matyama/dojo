@@ -22,7 +22,6 @@ from csp.matching import hopcroft_karp
 from csp.model import CSP, Assign
 from csp.scc import tarjan_scc
 from csp.types import (
-    Arc,
     Domain,
     DomainSet,
     DomainSetMut,
@@ -30,6 +29,7 @@ from csp.types import (
     Value,
     Var,
     VarArc,
+    VArc,
     Variable,
 )
 
@@ -47,11 +47,72 @@ class Inference(
         raise NotImplementedError
 
 
+class RevisionCtx(Generic[Value]):
+    """
+    Value iteration state used by revision in AC-3.1 (Zhang, Yap)
+
+    Complexity: value ordering constructed in O(n*d), all other operations O(1)
+    """
+
+    _last: dict[tuple[Var, Value, Var], tuple[Value, int]]
+    _ds: list[list[Value]]
+
+    # XXX: will  need Variabel -> Var mapping => add as param, pass in AC3
+    def __init__(self, ds: Sequence[Domain[Value]]) -> None:
+        """`ds` should be initial domains before any revision"""
+        self._last = {}
+        # XXX: make this efficient (somehow) => make clients handle the copy
+        self._ds = [list(d) for d in ds]
+
+    def resume(self, x: Var, x_val: Value, y: Var) -> tuple[Value | None, int]:
+        """
+        Retrieve the last y value (and its index) with consistent C(x, y)
+        """
+        item = self._last.get((x, x_val, y))
+        return item if item is not None else (None, -1)
+
+    # pylint: disable=too-many-arguments
+    def save(self, x: Var, x_val: Value, y: Var, y_val: Value, i: int) -> None:
+        """Cache the fact that (x_val, y_val@i) satisfied C(x, y)"""
+        self._last[x, x_val, y] = y_val, i
+
+    def next(self, y: Var, i: int) -> Value | None:
+        """Get next y value following index i or None if no such exists"""
+        d = self._ds[y]
+        return d[i + 1] if i + 1 < len(d) else None
+
+
+# XXX: `y_val in domain_y` will still hash-iter over the domain
+def exists(
+    arc: VArc[Variable],
+    x_val: Value,
+    domain_y: Domain[Value],
+    const_xy: BinConst[Variable, Value],
+    ctx: RevisionCtx[Value],
+) -> bool:
+    """Revision helper procedure for AC-3.1 (Zhang, Yap)"""
+    x_var, x, y_var, y = arc
+
+    y_val, i = ctx.resume(x, x_val, y)
+
+    if y_val is not None and y_val in domain_y:
+        return True
+
+    while (y_val := ctx.next(y, i)) is not None:
+        i += 1
+        if y_val in domain_y and const_xy((x_var, y_var), x_val, y_val):
+            ctx.save(x, x_val, y, y_val, i)
+            return True
+
+    return False
+
+
 def revise(
-    arc: Arc[Variable],
+    arc: VArc[Variable],
     domain_x: Domain[Value],
     domain_y: Domain[Value],
     const_xy: BinConst[Variable, Value],
+    ctx: RevisionCtx[Value],
 ) -> bool:
     """
     Procedure that deletes any value from `domain_x` which is inconsistent
@@ -59,6 +120,7 @@ def revise(
 
     Returns: True iff `domain_x` has been changed.
     Complexity: O(d^2) where d is the max domain size
+    TODO: update complexity => AC-3.1
 
     WARN: If a call to `revise` returns True, the contents of `domain_x` has
     been modified (some entries were removed). Otherwise, it's kept unchanged.
@@ -70,7 +132,7 @@ def revise(
     # XXX: list -> another shallow copy, and called inside `while queue`
     for x_val in list(domain_x):
         # Ban x_val if there's no possible y_val consistent with const_xy
-        if all(not const_xy(arc, x_val, y_val) for y_val in domain_y):
+        if not exists(arc, x_val, domain_y, const_xy, ctx):
             domain_x.remove(x_val)
             deleted = True
     return deleted
@@ -88,14 +150,13 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         self._consts = csp.consts
         self._vars = csp.variables
 
-    def _arc(self, x: Var, y: Var) -> Arc[Variable]:
-        return self._vars[x], self._vars[y]
+    def _arc(self, x: Var, y: Var) -> VArc[Variable]:
+        return self._vars[x], x, self._vars[y], y
 
     @property
     def arc_iter(self) -> Iterable[VarArc]:
         return ((x, y) for x, ys in enumerate(self._consts) for y in ys)
 
-    # TODO: could be reduced to O(n^2 * d^2)
     # TODO: generalize arcs to | Iterable[Arc[Variable]]
     def __call__(
         self,
@@ -103,7 +164,9 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
     ) -> Tuple[Optional[DomainSet[Value]], bool]:
         """
-        Complexity: O(n^3 * d^2) where
+        Implements AC-3.1 (Zhang, Yap)
+
+        Complexity: O(n^2 * d^2) where
           - n is the number of variables
           - d is the maximum domain size
         """
@@ -114,10 +177,12 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
             case ds:
                 revised_domains = [set(d) for d in ds]
 
+        # XXX: O(n*d) ... clones domains => improve?
+        ctx = RevisionCtx(revised_domains)
+
         queue = deque(arcs)
         revised = False
 
-        # O(n^2) iterations
         while queue:
             x, y = queue.popleft()
             if revise(
@@ -125,6 +190,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
                 domain_x=revised_domains[x],
                 domain_y=revised_domains[y],
                 const_xy=self._consts[x][y],
+                ctx=ctx,
             ):
                 if not revised_domains[x]:
                     return None, True

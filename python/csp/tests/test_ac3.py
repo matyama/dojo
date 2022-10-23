@@ -3,7 +3,7 @@ from typing import Optional
 import pytest
 
 from csp.constraints import Linear, Space2D
-from csp.inference import AC3, revise
+from csp.inference import AC3, RevisionCtx, revise
 from csp.model import CSP, Assign
 from csp.types import DomainSet
 
@@ -54,26 +54,59 @@ def dispatch_instance(
 def test_revise(a: CSP[str, int]) -> None:
 
     x1, x2, x3 = a.variables
+    x1_var, x2_var, x3_var = a.var(x1), a.var(x2), a.var(x3)
     d_x1, d_x2, d_x3 = a.domains
     c12 = a.const(x1, x2)
     c23 = a.const(x2, x3)
 
+    ctx = RevisionCtx(a.domains)
+
     assert c12 is not None
     assert c23 is not None
 
-    assert revise(arc=(x1, x2), domain_x=d_x1, domain_y=d_x2, const_xy=c12)
+    assert revise(
+        arc=(x1, x1_var, x2, x2_var),
+        domain_x=d_x1,
+        domain_y=d_x2,
+        const_xy=c12,
+        ctx=ctx,
+    )
     assert d_x1 == {2, 3} and d_x2 == {1, 2, 3}
 
-    assert revise(arc=(x2, x1), domain_x=d_x2, domain_y=d_x1, const_xy=c12)
+    assert revise(
+        arc=(x2, x2_var, x1, x1_var),
+        domain_x=d_x2,
+        domain_y=d_x1,
+        const_xy=c12,
+        ctx=ctx,
+    )
     assert d_x2 == {1, 2} and d_x1 == {2, 3}
 
-    assert revise(arc=(x2, x3), domain_x=d_x2, domain_y=d_x3, const_xy=c23)
+    assert revise(
+        arc=(x2, x2_var, x3, x3_var),
+        domain_x=d_x2,
+        domain_y=d_x3,
+        const_xy=c23,
+        ctx=ctx,
+    )
     assert d_x2 == {2} and d_x3 == {2, 3}
 
-    assert revise(arc=(x3, x2), domain_x=d_x3, domain_y=d_x2, const_xy=c23)
+    assert revise(
+        arc=(x3, x3_var, x2, x2_var),
+        domain_x=d_x3,
+        domain_y=d_x2,
+        const_xy=c23,
+        ctx=ctx,
+    )
     assert d_x3 == {3} and d_x2 == {2}
 
-    assert revise(arc=(x1, x2), domain_x=d_x1, domain_y=d_x2, const_xy=c12)
+    assert revise(
+        arc=(x1, x1_var, x2, x2_var),
+        domain_x=d_x1,
+        domain_y=d_x2,
+        const_xy=c12,
+        ctx=ctx,
+    )
     assert d_x1 == {3} and d_x2 == {2}
 
     assert [d_x1, d_x2, d_x3] == [{3}, {2}, {3}]

@@ -97,6 +97,7 @@ class HasVar(Protocol, Generic[Variable]):
 
 Arc: TypeAlias = Tuple[Variable, Variable]
 VarArc: TypeAlias = Tuple[Var, Var]
+VArc: TypeAlias = Tuple[Variable, Var, Variable, Var]
 
 Value = TypeVar("Value")
 OrdValue = TypeVar("OrdValue", bound=Ord)
