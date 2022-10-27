@@ -222,6 +222,10 @@ class CSP(Generic[Variable, Value]):
         return len(self._vars)
 
     @property
+    def num_vals(self) -> int:
+        return len({v for d in self._doms for v in d})
+
+    @property
     def domains(self) -> Sequence[Domain[Value]]:
         return self._doms
 
@@ -267,7 +271,7 @@ class CSP(Generic[Variable, Value]):
         """Alterative syntax for `csp += x, d`"""
         self += x, d
 
-    # XXX: might not be necessary anymorea or used just internally for Assign.
+    # XXX: might not be necessary anymore or used just internally for Assign.
     def variable(self, i: Var) -> Variable:
         return self._vars[i]
 
@@ -341,7 +345,7 @@ class Assign(Generic[Value]):
     val: Value
 
     def __rshift__(self, domains: Sequence[Domain[Value]]) -> DomainSet[Value]:
-        # XXX: deep-copy!
+        # XXX: deep-copy! (note: not fully deep, but copies all the sets)
         # deepcopy domain set
         domains = [set(d) for d in domains]
         domains[self.var] = {self.val}

@@ -10,14 +10,12 @@ from csp.scc import strongly_connected_components
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 
-# TODO: API features
-#  - new parames: `inference_engine: Inference[...]`, `next_val: ...`
 def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
 
     # TODO: contextualize this (decorator / ctx manager)
     #  - https://stackoverflow.com/a/50120316
     old_rec_limit = sys.getrecursionlimit()
-    new_rec_limit = _estimate_recursion_depth(csp)
+    new_rec_limit = 2 * (csp.num_vars + csp.num_vals)
     sys.setrecursionlimit(max(old_rec_limit, new_rec_limit))
 
     match _split(csp):
@@ -64,11 +62,12 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     sort_domain = LeastConstraining[Variable, Value](csp)
     inference_engine = InferenceEngine(csp)
 
+    # TODO: return and collects stats
     stats = Counter[str]()
     stats["vars"] = csp.num_vars
     stats["binary"] = sum(len(cs) for cs in csp.consts)
     stats["global"] = len(csp.globals)
-    print(stats)
+    # print(stats)
 
     def backtracking_search(
         ctx: AssignCtx[Value],
@@ -83,7 +82,7 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         var = next_var(ctx.unassigned, domains)
         ctx.unassigned[var] = False
 
-        vals = list(sort_domain(var, domains, ctx.unassigned))
+        # TODO: debug logging support
         # print(
         #    f"var={var}",
         #    f"|A|={len(ctx.assignment)}",
@@ -91,8 +90,7 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         #    f"ord={vals}",
         # )
 
-        # for val in sort_domain(var, domains, ctx.unassigned):
-        for val in vals:
+        for val in sort_domain(var, domains, ctx.unassigned):
 
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
@@ -100,33 +98,12 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
                 ctx.assignment[var] = val
                 stats["inferences"] += 1
 
-                # num_vals_start = sum(
-                #    len(d) for d in (Assign(var, val) >> domains)
-                # )
-
-                # XXX: 10-Queens => prunes init x0 := 0 even tho binary finds a
-                #      solution with this assignment => alldiff inference bug
-                #      => revised_domains is None ???
-                #      => after multiple iters: fails on |M| >= |X|
-                #          - due to missing value in some input domains
-                # even with single iteration: x0 := 0 => revised_domains
-                #  - compared to binary, missing some values => unsound infer
-                #  - e.g. 1: 3, 5: 2
-                #
-                # but alldiff inference works on examples from papers, so the
-                # issue is probably on the side of VarTransofrm
-                #  - Queens => debug => 1st alldiff(xs) looks fine
-                #    (for x0 := 0 filters 0 from all other domains)
-                #  - TODO: debug the other two constraints (i.e. with f)
-
                 # Infer feasible domains
                 revised_domains = inference_engine.infer(
                     assign=Assign(var, val), ctx=domains
                 )
                 # print(f">>> revised [x{var} := {val}]: {revised_domains}")
-
-                # num_vals_end = sum(len(d) for d in revised_domains or [])
-                # stats["revised"] += num_vals_start - num_vals_end
+                # stats["revised"] += num_revised
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:
@@ -155,13 +132,6 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     )
 
     # TODO: rather return as an extra part of the output
-    print(assignment)
-    print(stats)
+    # print(stats)
 
     return csp.as_solution(assignment) if assignment is not None else {}
-
-
-def _estimate_recursion_depth(csp: CSP[Variable, Value]) -> int:
-    n_vars = csp.num_vars
-    n_vals = len({v for d in csp.domains for v in d})
-    return 2 * (n_vars + n_vals)

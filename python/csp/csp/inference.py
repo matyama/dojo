@@ -37,8 +37,6 @@ C_contra = TypeVar("C_contra", contravariant=True)
 I_co = TypeVar("I_co", covariant=True)
 
 
-# TODO: impl other AC algs => decide on the interface
-#  - Alternative API: infer(Assign, C) -> C ... C ~ generic inference ctx
 class Inference(
     Protocol, Generic[C_contra, I_co, Value]
 ):  # pylint: disable=R0903
@@ -57,7 +55,6 @@ class RevisionCtx(Generic[Value]):
     _last: dict[tuple[Var, Value, Var], tuple[Value, int]]
     _ds: list[list[Value]]
 
-    # XXX: will  need Variabel -> Var mapping => add as param, pass in AC3
     def __init__(self, ds: Sequence[Domain[Value]]) -> None:
         """`ds` should be initial domains before any revision"""
         self._last = {}
@@ -90,7 +87,13 @@ def exists(
     const_xy: BinConst[Variable, Value],
     ctx: RevisionCtx[Value],
 ) -> bool:
-    """Revision helper procedure for AC-3.1 (Zhang, Yap)"""
+    """
+    Revision helper procedure for AC-3.1 (Zhang, Yap).
+
+    Returns `True` iff there exists `y_val` in the revision `ctx`, and
+    `domain_y`, such that `x := x_val` and `y := y_val` for `x` and `y` from
+    the `arc`, is consistent under common constraint `const_xy`.
+    """
     x_var, x, y_var, y = arc
 
     y_val, i = ctx.resume(x, x_val, y)
@@ -138,12 +141,11 @@ def revise(
     return deleted
 
 
-AC3Context: TypeAlias = Sequence[Domain[Value]]
-
-
 # XXX: explicitly subclass Inference?
 #      `Generic[Value], Inference[AC3Context[Value], DomainSet[Value], Value]`
 class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
+    """Arc consistency mechanism (version 3.1) for binary constraints"""
+
     # XXX: consider making consts and vars args
     #  => indicate that domains won't be used (should be passed to __call__)
     def __init__(self, csp: CSP[Variable, Value]) -> None:
@@ -201,7 +203,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         return revised_domains, revised
 
     def infer(
-        self, assign: Assign[Value], ctx: AC3Context[Value]
+        self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
     ) -> Optional[DomainSet[Value]]:
         revised_domains, _ = self(
             arcs=self.arc_iter,
@@ -235,7 +237,6 @@ class ValueGraph(Generic[Value]):
     edges: Set[Edge]
     adj: Sequence[Sequence[int]]
 
-    # FIXME: too-many-locals
     @classmethod
     def new(
         cls,
@@ -328,7 +329,6 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         return domains.ds, revised
 
     # TODO: check - should run in O(m*sqrt(n))
-    # TODO: impl Inference
     # TODO: incremental checking
     #  - alldiff.pdf, p. 24 (paragraph below Algorithm 2)
     #  - CSP containts other contraints => domains change => update G/M
@@ -452,7 +452,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         # perform BFS in G_M starting from M-free vertices, and mark all
         # traversed arcs as used
 
-        # XXX: maxlen => use the fact that gm was constructed from bipartite G
+        # XXX: maxlen => use the fact that graph was built from bipartite G
         # XXX: could visited be shared? => graph BFS?
 
         for src, dst in bfs(graph, inits=free):
@@ -465,8 +465,14 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
 
 class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
+    """
+    Combined inference mechanism that alternates arc and hyper-arc consistency
+    as long as input variable domains keep changing (reducing).
 
-    # TODO: possibly add flag/int `iterative` => if false then do just one iter
+    Note that currently the only hyper-arc consistency that we support is the
+    alldiff global constraint.
+    """
+
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._binary = AC3(csp)
         self._global = AllDiffInference(csp)

@@ -48,8 +48,9 @@ csp += x | even
 ```
 
 ## Global Constraints
- - `csp += AllDiff([x1, x2, x3])`, note: current implementation naively converts
-   the _alldiff_ constraint into an equivalent set of binary constraints
+ - `csp += AllDiff([x1, x2, x3])`, see this
+   [paper](https://www.andrew.cmu.edu/user/vanhoeve/papers/alldiff.pdf)
+   for algorithm details
 
 # Examples
  - [Sudoku](examples/test_sudoku.py)
@@ -59,10 +60,15 @@ csp += x | even
 
 # Implementation details
 The `solve(csp)` algorithm is standard _backtracking search_ with
-_arc consistency_ checking (_AC3_) and heuristics:
+_arc consistency_ checking (**AC-3.1**) and heuristics:
  - *Variable selection*: _minimal remaining values_ (`MRV`) with
    _degree heuristic_ for tie-breaking
  - *Value prioritization*: _least constraining value first_ (`LeastConstrainig`)
+
+# Environment
+ - `BINARY_ONLY` controls whether CSP will turn all global (currently
+   *alldiff*) constraints into corresponding set of binary constraints
+   (`BINARY_ONLY=true`) or not (`BINARY_ONLY=false`, default)
 
 ## Splitting into independent instances
 The `solve(csp)` function uses Tarjan's algorithm for finding strongly

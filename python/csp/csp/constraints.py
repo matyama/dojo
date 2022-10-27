@@ -350,7 +350,7 @@ class Unary(Generic[Variable, Value]):
     p: Callable[[Value], bool]
 
 
-# TODO: this is an ad-hoc definition - make some nice API
+# TODO: this is an ad-hoc definition - make some nice API for `GlobalConst`
 class AllDiff(Generic[Variable, Value]):
     xs: Sequence[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
     scope: FrozenSet[Variable]
