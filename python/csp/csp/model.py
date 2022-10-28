@@ -2,7 +2,7 @@ import os
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Generic, Protocol, TypeAlias, TypeVar
+from typing import Generic, Protocol, TypeAlias, TypeVar, cast
 
 from csp.constraints import (
     AllDiff,
@@ -98,12 +98,6 @@ VarDom: TypeAlias = tuple[
 ]
 
 
-# NOTE: generic NewType is not yet supported
-@dataclass(frozen=True)
-class Restrict(Generic[Variable, Value]):
-    assign: Mapping[Variable | X[Variable, Value], Value]
-
-
 class CSP(Generic[Variable, Value]):
     """CSP problem instance builder"""
 
@@ -137,31 +131,13 @@ class CSP(Generic[Variable, Value]):
         | Iterable[VarDom[Variable, Value]]
         | BinConst[Variable, Value]
         | Unary[Variable, Value]
-        | Restrict[Variable, Value]
         | AllDiff[Variable, Value],
     ) -> "CSP[Variable, Value]":
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
+
         if isinstance(item, tuple):
-            x, d = item
-
-            if isinstance(x, X):
-                x = x.var
-
-            # materialize domain if necessary
-            if not isinstance(d, set):
-                d = set(d)
-
-            x_var = self._var_ids.get(x)
-            if x_var is not None:
-                self._doms[x_var] = d
-            else:
-                self._var_ids[x] = len(self._vars)
-                self._vars.append(x)
-                self._doms.append(d)
-                self._consts.append({})
-                self._scoped_global.append([])
-
-                assert len(self._consts) == len(self._vars)
+            var_dom = cast(VarDom[Variable, Value], item)
+            self._register_var(var_dom)
 
         elif isinstance(item, Unary):
             x = self._var_ids.get(item.x)
@@ -172,38 +148,62 @@ class CSP(Generic[Variable, Value]):
             #       variables's domain
             self._doms[x] = {v for v in self._doms[x] if item.p(v)}
 
-        elif isinstance(item, Restrict):
-            for x, v in item.assign.items():
-                self += x, {v}
-
         # TODO: generalize to global constraints
         elif isinstance(item, AllDiff):
-            if self._binary_only:
-                # TODO: transforming other global constraints is not so simple
-                for c in item.iter_binary():
-                    self += c
-            else:
-                # TODO: check if item already exists between globals
-                self._global.append(item)
-                for x in map(self.var, item.scope):
-                    self._scoped_global[x].append(item)
+            self._register_global(item)
 
         elif isinstance(item, Iterable):
             for var_dom in item:
                 self += var_dom
 
         else:
-            var_a, var_b = item.vars  # type: tuple[Variable, Variable]
-            # NOTE: asserts that a, b have been registered before
-            a, b = self.var(var_a), self.var(var_b)
-            # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
-            # pylint: disable=invalid-sequence-index
-            acc = self._consts[a].get(b, ConstSet(var_a, var_b))
-            acc &= item
-            self._consts[a][b] = acc
-            self._consts[b][a] = acc
+            self._register_binary(item)
 
         return self
+
+    def _register_var(self, item: VarDom[Variable, Value]) -> None:
+        x, d = item
+
+        if isinstance(x, X):
+            x = x.var
+
+        # materialize domain if necessary
+        if not isinstance(d, set):
+            d = set(d)
+
+        x_var = self._var_ids.get(x)
+        if x_var is not None:
+            self._doms[x_var] = d
+        else:
+            self._var_ids[x] = len(self._vars)
+            self._vars.append(x)
+            self._doms.append(d)
+            self._consts.append({})
+            self._scoped_global.append([])
+
+            assert len(self._consts) == len(self._vars)
+
+    def _register_binary(self, item: BinConst[Variable, Value]) -> None:
+        var_a, var_b = item.vars
+        # NOTE: asserts that a, b have been registered before
+        a, b = self.var(var_a), self.var(var_b)
+        # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
+        # pylint: disable=invalid-sequence-index
+        acc = self._consts[a].get(b, ConstSet(var_a, var_b))
+        acc &= item
+        self._consts[a][b] = acc
+        self._consts[b][a] = acc
+
+    def _register_global(self, item: AllDiff[Variable, Value]) -> None:
+        if self._binary_only:
+            # TODO: transforming other global constraints is not so simple
+            for c in item.iter_binary():
+                self += c
+        else:
+            # TODO: check if item already exists between globals
+            self._global.append(item)
+            for x in map(self.var, item.scope):
+                self._scoped_global[x].append(item)
 
     @property
     def num_vars(self) -> int:
@@ -235,7 +235,6 @@ class CSP(Generic[Variable, Value]):
         return self._global
 
     # XXX: used only in tests
-    # TODO: could used slicing operator => csp[x:y] ...or use it for `arc`
     def const(
         self, x: Variable, y: Variable
     ) -> BinConst[Variable, Value] | None:

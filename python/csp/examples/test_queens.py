@@ -68,10 +68,9 @@ def test_infeasible(n: int, model: Queens) -> None:
     assert not solution
 
 
-# @pytest.mark.execution_timeout(12)
-def test_1k(model: Queens) -> None:
-    # XXX: scale this to 1k
-    n = 10
+@pytest.mark.execution_timeout(10)
+def test_n20(model: Queens) -> None:
+    n = 20
 
     csp = model.into_csp(instance=n)
     solution = solve(csp)
