@@ -1,3 +1,5 @@
+import logging
+import os
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from functools import partial
@@ -8,34 +10,52 @@ from csp.inference import InferenceEngine
 from csp.model import CSP, Assign, AssignCtx
 from csp.scc import strongly_connected_components
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
-from csp.utils import recursionlimit
+from csp.utils import create_logger, recursionlimit
 
 
 def solve(
-    csp: CSP[Variable, Value], processes: int | None = None
+    csp: CSP[Variable, Value],
+    processes: int | None = None,
+    log_level: int | str | None = None,
 ) -> Solution[Variable, Value]:
 
     # estimate required recursion limit
     recursion_limit = 2 * (csp.num_vars + csp.num_vals)
 
+    processes = processes if processes is not None else cpu_count()
+
+    level = (
+        log_level
+        if log_level is not None
+        else os.environ.get("LOG_LEVEL", logging.WARN)
+    )
+
     with recursionlimit(limit=recursion_limit, non_decreasing=True):
+
+        logger = create_logger(level=level, use_mp=processes > 0)
+        run_solve = partial(_solve, logger=logger)
+
         match _split(csp):
             case [orig]:
-                return _solve(orig)
+                logger.info("solving single CSP instance")
+                return run_solve(orig)
             case subs:
-                processes = processes if processes is not None else cpu_count()
-                # print(f"CSP intance split into {len(subs)} independent CSPs")
+
+                logger.info(
+                    "CSP intance split into %d independent CSPs", len(subs)
+                )
+
                 if processes > 0:
                     with Pool(processes=processes) as pool:
                         solution = {
                             var: val
-                            for s in pool.imap_unordered(_solve, subs)
+                            for s in pool.imap_unordered(run_solve, subs)
                             for var, val in s.items()
                         }
                 else:
                     solution = {
                         var: val
-                        for s in map(_solve, subs)
+                        for s in map(run_solve, subs)
                         for var, val in s.items()
                     }
                 return solution if len(solution) == csp.num_vars else {}
@@ -64,7 +84,9 @@ def _split(csp: CSP[Variable, Value]) -> list[CSP[Variable, Value]]:
     return [sub_csp(component) for component in scc] if len(scc) > 1 else [csp]
 
 
-def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
+def _solve(
+    csp: CSP[Variable, Value], logger: logging.Logger
+) -> Solution[Variable, Value]:
 
     consistent = partial(CSP[Variable, Value].consistent, csp)
     complete = partial(CSP[Variable, Value].complete, csp)
@@ -79,7 +101,8 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     stats["vars"] = csp.num_vars
     stats["binary"] = sum(len(cs) for cs in csp.consts)
     stats["global"] = len(csp.globals)
-    # print(stats)
+
+    logger.debug("initial stats: %s", stats)
 
     def backtracking_search(
         ctx: AssignCtx[Value],
@@ -94,19 +117,14 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         var = next_var(ctx.unassigned, domains)
         ctx.unassigned[var] = False
 
-        # TODO: debug logging support
-        # print(
-        #    f"var={var}",
-        #    f"|A|={len(ctx.assignment)}",
-        #    # f"ds={domains}",
-        #    f"ord={vals}",
-        # )
+        logger.debug("var=%s |A|=%d ds=%s", var, len(ctx.assignment), domains)
 
         for val in sort_domain(var, domains, ctx.unassigned):
 
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
-                # print(f"x{var} := {val} >> {ctx.assignment}")
+
+                logger.debug("x%s := %s >> %s", var, val, ctx.assignment)
                 ctx.assignment[var] = val
                 stats["inferences"] += 1
 
@@ -114,21 +132,24 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
                 revised_domains = inference_engine.infer(
                     assign=Assign(var, val), ctx=domains
                 )
-                # print(f">>> revised [x{var} := {val}]: {revised_domains}")
+                logger.debug(
+                    "revised [x%s := %s]: %s", var, val, revised_domains
+                )
                 # stats["revised"] += num_revised
 
                 # Check if the inference found this sub-space feasible
                 if revised_domains is not None:
-                    # print(f">>> searching deeper with x{var} := {val}")
+                    logger.debug("searching deeper with x%s := %s", var, val)
+
                     assignment = backtracking_search(ctx, revised_domains)
                     if assignment is not None:
                         return assignment
 
                     stats["backtracks"] += 1
-                    # print(f">>> backtracking from x{var} := {val}")
+                    logger.debug("backtracking from x%s := %s", var, val)
                 else:
                     stats["pruned"] += 1
-                    # print(f">>> PRUNED: x{var} := {val}")
+                    logger.debug("pruned: x%s := %s", var, val)
 
                 del ctx.assignment[var]
             else:
@@ -143,7 +164,6 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         domains=csp.domains,
     )
 
-    # TODO: rather return as an extra part of the output
-    # print(stats)
+    logger.debug("final stats: %s", stats)
 
     return csp.as_solution(assignment) if assignment is not None else {}

@@ -1,3 +1,5 @@
+import logging
+import multiprocessing as mp
 import sys
 from types import TracebackType
 
@@ -29,3 +31,23 @@ class recursionlimit:  # pylint: disable=invalid-name
         exc_tb: TracebackType | None,
     ) -> None:
         sys.setrecursionlimit(self._old_limit)
+
+
+def create_logger(
+    name: str = "csp", level: int | str = logging.INFO, use_mp: bool = False
+) -> logging.Logger:
+    logger = mp.get_logger() if use_mp else logging.getLogger(name=name)
+
+    logger.setLevel(level)
+
+    formatter = logging.Formatter(
+        "[%(asctime)s] [%(levelname)8s] [%(processName)18s] %(message)s"
+    )
+
+    handler = logging.StreamHandler()
+    handler.setFormatter(formatter)
+
+    if not logger.handlers:
+        logger.addHandler(handler)
+
+    return logger
