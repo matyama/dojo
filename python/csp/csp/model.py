@@ -1,20 +1,8 @@
 import os
 from abc import abstractmethod
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import (
-    Callable,
-    Dict,
-    Generic,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-)
+from typing import Generic, Protocol, TypeAlias, TypeVar
 
 from csp.constraints import (
     AllDiff,
@@ -105,7 +93,7 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
         return GreaterThan(x=self.var, y=y.var if isinstance(y, X) else y)
 
 
-VarDom: TypeAlias = Tuple[
+VarDom: TypeAlias = tuple[
     Variable | X[Variable, Value], Domain[Value] | Iterable[Value]
 ]
 
@@ -119,16 +107,16 @@ class Restrict(Generic[Variable, Value]):
 class CSP(Generic[Variable, Value]):
     """CSP problem instance builder"""
 
-    _var_ids: Dict[Variable, Var]
-    _vars: List[Variable]
+    _var_ids: dict[Variable, Var]
+    _vars: list[Variable]
     _doms: DomainSet[Value]
-    _consts: List[Dict[Var, ConstSet[Variable, Value]]]
-    _global: List[AllDiff[Variable, Value]]
-    _scoped_global: List[List[AllDiff[Variable, Value]]]
+    _consts: list[dict[Var, ConstSet[Variable, Value]]]
+    _global: list[AllDiff[Variable, Value]]
+    _scoped_global: list[list[AllDiff[Variable, Value]]]
     # TODO: global constraints
     #  - generalize from just `AllDiff` to `GlobalConst`
-    #  - either a s `_globals: List[GlobalConst]` ... `_globals[x]` includes x
-    #  - or make a new dataclass ConstRef(x: Var, binary: Dict, global: List)
+    #  - either a s `_globals: list[GlobalConst]` ... `_globals[x]` includes x
+    #  - or make a new dataclass ConstRef(x: Var, binary: dict, global: list)
     #    and include these as elements of `_consts`
     #  => probably better handled separately due to different inference methods
     _binary_only: bool
@@ -205,7 +193,7 @@ class CSP(Generic[Variable, Value]):
                 self += var_dom
 
         else:
-            var_a, var_b = item.vars  # type: Tuple[Variable, Variable]
+            var_a, var_b = item.vars  # type: tuple[Variable, Variable]
             # NOTE: asserts that a, b have been registered before
             a, b = self.var(var_a), self.var(var_b)
             # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
@@ -250,7 +238,7 @@ class CSP(Generic[Variable, Value]):
     # TODO: could used slicing operator => csp[x:y] ...or use it for `arc`
     def const(
         self, x: Variable, y: Variable
-    ) -> Optional[BinConst[Variable, Value]]:
+    ) -> BinConst[Variable, Value] | None:
         var_x, var_y = self.var(x), self.var(y)
         # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
         # pylint: disable=invalid-sequence-index
@@ -355,7 +343,7 @@ class Assign(Generic[Value]):
 @dataclass
 class AssignCtx(Generic[Value]):
     assignment: Assignment[Value]
-    unassigned: List[bool]
+    unassigned: list[bool]
 
 
 I_contra = TypeVar("I_contra", contravariant=True)

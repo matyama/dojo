@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from itertools import product
-from typing import Iterable, List, Tuple, TypeAlias
+from typing import TypeAlias
 
 from csp.constraints import AllDiff
 from csp.model import CSP, Domain, Model, Solution
@@ -44,8 +45,8 @@ def test_sudoku() -> None:
 
 
 Digit: TypeAlias = int
-Cell: TypeAlias = Tuple[int, int]
-SudokuBoard: TypeAlias = List[List[Digit]]
+Cell: TypeAlias = tuple[int, int]
+SudokuBoard: TypeAlias = list[list[Digit]]
 
 
 class Sudoku(Model[SudokuBoard, SudokuBoard, Cell, Digit]):

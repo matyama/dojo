@@ -1,7 +1,7 @@
 import sys
 from collections import Counter
+from collections.abc import Iterable, Sequence
 from functools import partial
-from typing import Iterable, List, Optional, Sequence
 
 from csp.heuristics import MRV, LeastConstraining
 from csp.inference import InferenceEngine
@@ -22,14 +22,14 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         case [orig]:
             return _solve(orig)
         case subs:
-            print(f">>> CSP intance split into {len(subs)} independent CSPs")
+            # print(f">>> CSP intance split into {len(subs)} independent CSPs")
             # TODO: solve multiple independent CSPs in parallel
             solutions: Iterable[Solution[Variable, Value]] = map(_solve, subs)
             solution = {var: val for s in solutions for var, val in s.items()}
             return solution if len(solution) == csp.num_vars else {}
 
 
-def _split(csp: CSP[Variable, Value]) -> List[CSP[Variable, Value]]:
+def _split(csp: CSP[Variable, Value]) -> list[CSP[Variable, Value]]:
     # TODO: take into account global consts and split those as well if possible
     if csp.globals:
         return [csp]
@@ -72,7 +72,7 @@ def _solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
     def backtracking_search(
         ctx: AssignCtx[Value],
         domains: Sequence[Domain[Value]],
-    ) -> Optional[Assignment[Value]]:
+    ) -> Assignment[Value] | None:
 
         if complete(ctx.assignment):
             return ctx.assignment

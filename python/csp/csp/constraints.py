@@ -1,21 +1,10 @@
 import operator
 from abc import abstractmethod
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 from itertools import combinations
-from typing import (
-    Callable,
-    FrozenSet,
-    Generic,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Set,
-    Tuple,
-)
+from typing import Generic, Protocol
 
 from csp.types import (
     Arc,
@@ -33,7 +22,7 @@ from csp.types import (
 class BinConst(Protocol, Generic[Variable, Value]):
     @property
     @abstractmethod
-    def vars(self) -> Tuple[Variable, Variable]:
+    def vars(self) -> tuple[Variable, Variable]:
         """
         If self represents relation C(x, y) then this property returns (x, y).
         """
@@ -71,13 +60,13 @@ class BinConst(Protocol, Generic[Variable, Value]):
 class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
     x: Variable
     y: Variable
-    cs: List[BinConst[Variable, Value]] = field(default_factory=list)
+    cs: list[BinConst[Variable, Value]] = field(default_factory=list)
 
     def __post_init__(self) -> None:
         assert self.x != self.y, "x must be different from y"
 
     @property
-    def vars(self) -> Tuple[Variable, Variable]:
+    def vars(self) -> tuple[Variable, Variable]:
         return self.x, self.y
 
     def _sat(self, x_val: Value, y_val: Value) -> bool:
@@ -138,7 +127,7 @@ class PredicateConst(Generic[Variable, Value], BinConst[Variable, Value]):
         return self.var(self.y)
 
     @property
-    def vars(self) -> Tuple[Variable, Variable]:
+    def vars(self) -> tuple[Variable, Variable]:
         return self.var_x, self.var_y
 
     def _sat(self, x_val: Value, y_val: Value) -> bool:
@@ -313,7 +302,7 @@ class Linear(Generic[Variable, NumValue], BinConst[Variable, NumValue]):
         return self.var(self.y)
 
     @property
-    def vars(self) -> Tuple[Variable, Variable]:
+    def vars(self) -> tuple[Variable, Variable]:
         return self.var_x, self.var_y
 
     def _sat(self, x_val: NumValue, y_val: NumValue) -> bool:
@@ -353,7 +342,7 @@ class Unary(Generic[Variable, Value]):
 # TODO: this is an ad-hoc definition - make some nice API for `GlobalConst`
 class AllDiff(Generic[Variable, Value]):
     xs: Sequence[Variable | HasVar[Variable] | VarTransform[Variable, Value]]
-    scope: FrozenSet[Variable]
+    scope: frozenset[Variable]
     tansforms: Mapping[Variable, Transform[Value]]
 
     def __init__(
@@ -362,20 +351,20 @@ class AllDiff(Generic[Variable, Value]):
             Variable | HasVar[Variable] | VarTransform[Variable, Value]
         ],
     ) -> None:
-        self.xs = xs if isinstance(xs, List) else list(xs)
+        self.xs = xs if isinstance(xs, list) else list(xs)
         self.scope = frozenset(self.iter_vars())
         self.transforms = {
             x.x: x.f for x in self.xs if isinstance(x, VarTransform)
         }
 
-    def __call__(self, assignment: Iterable[Tuple[Variable, Value]]) -> bool:
+    def __call__(self, assignment: Iterable[tuple[Variable, Value]]) -> bool:
         """
         Returns True iff all values from `assignment`, restricted to variables
         in the scope of this constraint, are different.
         """
         # restrict assignment to variables in the scope and collect values
         num_relevant = 0
-        distinct: Set[Value] = set()
+        distinct: set[Value] = set()
         for x, v in assignment:
             if x in self.scope:
                 num_relevant += 1
@@ -401,7 +390,7 @@ class AllDiff(Generic[Variable, Value]):
 
     def iter_transforms(
         self,
-    ) -> Iterable[Tuple[Variable, Optional[Transform[Value]]]]:
+    ) -> Iterable[tuple[Variable, Transform[Value] | None]]:
         for x in self.xs:
             if isinstance(x, HasVar):
                 yield x.var, None

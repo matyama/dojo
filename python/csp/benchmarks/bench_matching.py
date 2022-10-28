@@ -1,6 +1,6 @@
 import random
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import List, Sequence, Set, Tuple
 
 from csp.matching import hopcroft_karp, max_bipartite_matching
 
@@ -9,15 +9,15 @@ from csp.matching import hopcroft_karp, max_bipartite_matching
 class ValueGraph:
     xs: Sequence[str]
     ys: Sequence[int]
-    edges: Set[Tuple[str, int]]
+    edges: set[tuple[str, int]]
 
     # pylint: disable=duplicate-code
     @property
-    def adj(self) -> List[List[int]]:
+    def adj(self) -> list[list[int]]:
         xs_ix = {x: i for i, x in enumerate(self.xs)}
         ys_ix = {y: j for j, y in enumerate(self.ys)}
 
-        adj: List[List[int]] = [[] for _ in self.xs]
+        adj: list[list[int]] = [[] for _ in self.xs]
         for x, y in self.edges:
             i, j = xs_ix[x], ys_ix[y]
             adj[i].append(j)
@@ -36,7 +36,7 @@ def random_value_graph() -> ValueGraph:
 
 
 def bench_dfs(
-    xs: Sequence[str], ys: Sequence[int], edges: Set[Tuple[str, int]]
+    xs: Sequence[str], ys: Sequence[int], edges: set[tuple[str, int]]
 ) -> None:
     max_bipartite_matching(xs, ys, edges)
 

@@ -1,5 +1,5 @@
 from itertools import combinations
-from typing import List, TypeAlias
+from typing import TypeAlias
 
 import pytest
 
@@ -10,7 +10,7 @@ from csp.solver import solve
 Rook: TypeAlias = int
 Row: TypeAlias = int
 BoardSize: TypeAlias = int
-Positions: TypeAlias = List[Row]
+Positions: TypeAlias = list[Row]
 
 
 class Rooks(Model[BoardSize, Positions, Rook, Row]):

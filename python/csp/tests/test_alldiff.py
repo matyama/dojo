@@ -1,4 +1,4 @@
-from typing import Iterable, Sequence, Tuple
+from collections.abc import Iterable, Sequence
 
 import pytest
 
@@ -30,7 +30,7 @@ from csp.types import DomainSet
         ),
     ],
 )
-def test_alldiff_consistency(assignment: Iterable[Tuple[str, int]]) -> None:
+def test_alldiff_consistency(assignment: Iterable[tuple[str, int]]) -> None:
     alldiff = AllDiff[str, int](["x1", "x2", "x3"])
     assert alldiff(assignment)
 

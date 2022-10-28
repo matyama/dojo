@@ -1,5 +1,5 @@
 from itertools import combinations
-from typing import List, TypeAlias
+from typing import TypeAlias
 
 import pytest
 
@@ -12,7 +12,7 @@ Queen: TypeAlias = int
 Row: TypeAlias = int
 
 
-class Queens(Model[int, List[Row], Queen, Row]):
+class Queens(Model[int, list[Row], Queen, Row]):
     def into_csp(self, instance: int) -> CSP[Queen, Row]:
         n = instance
         assert n > 0
@@ -34,7 +34,7 @@ class Queens(Model[int, List[Row], Queen, Row]):
 
         return csp
 
-    def from_csp(self, solution: Solution[Queen, Row]) -> List[Row]:
+    def from_csp(self, solution: Solution[Queen, Row]) -> list[Row]:
         n = len(solution)
 
         queens = [0] * n

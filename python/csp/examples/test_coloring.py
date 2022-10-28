@@ -1,5 +1,5 @@
 from enum import Enum, auto
-from typing import Dict, List, TypeAlias
+from typing import TypeAlias
 
 from csp.model import CSP, Model, Solution
 from csp.solver import solve
@@ -21,8 +21,8 @@ class Color(Enum):
     B = auto()
 
 
-Map: TypeAlias = Dict[Territory, List[Territory]]
-Coloring: TypeAlias = Dict[Territory, Color]
+Map: TypeAlias = dict[Territory, list[Territory]]
+Coloring: TypeAlias = dict[Territory, Color]
 
 
 class Australia(Model[Map, Coloring, Territory, Color]):

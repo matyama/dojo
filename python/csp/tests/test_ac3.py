@@ -1,5 +1,3 @@
-from typing import Optional
-
 import pytest
 
 from csp.constraints import Linear, Space2D
@@ -120,9 +118,7 @@ def test_revise(a: CSP[str, int]) -> None:
     ],
     indirect=["instance"],
 )
-def test_ac3(
-    instance: CSP[str, int], expected: Optional[DomainSet[int]]
-) -> None:
+def test_ac3(instance: CSP[str, int], expected: DomainSet[int] | None) -> None:
     ac3 = AC3(csp=instance)
     revised_domains, _ = ac3(arcs=ac3.arc_iter, domains=instance.domains)
     assert revised_domains == expected
@@ -136,7 +132,7 @@ def test_ac3(
     ],
 )
 def test_infer(
-    x: str, v: int, expected: Optional[DomainSet[int]], a: CSP[str, int]
+    x: str, v: int, expected: DomainSet[int] | None, a: CSP[str, int]
 ) -> None:
     actual = AC3(a).infer(assign=Assign(var=a.var(x), val=v), ctx=a.domains)
     assert expected == actual

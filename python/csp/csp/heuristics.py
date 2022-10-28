@@ -1,6 +1,7 @@
 from abc import abstractmethod
+from collections.abc import Iterable, Mapping, Sequence
 from operator import itemgetter
-from typing import Generic, Iterable, Mapping, Protocol, Sequence, Set
+from typing import Generic, Protocol
 
 from csp.constraints import ConstSet
 from csp.model import CSP
@@ -25,7 +26,7 @@ class MRV(Generic[Variable, Value], VarSelect[Value]):  # pylint: disable=R0903
 
     # domain size then most constraints
     _key = itemgetter(1, 2)
-    _consts: Sequence[Set[Var]]
+    _consts: Sequence[set[Var]]
 
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._consts = [set(cs.keys()) for cs in csp.consts]

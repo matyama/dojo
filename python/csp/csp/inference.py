@@ -1,20 +1,8 @@
 from abc import abstractmethod
 from collections import deque
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import (
-    Dict,
-    Generic,
-    Iterable,
-    List,
-    Mapping,
-    Optional,
-    Protocol,
-    Sequence,
-    Set,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-)
+from typing import Generic, Protocol, TypeAlias, TypeVar
 
 from csp.bfs import bfs
 from csp.constraints import AllDiff, BinConst
@@ -41,7 +29,7 @@ class Inference(
     Protocol, Generic[C_contra, I_co, Value]
 ):  # pylint: disable=R0903
     @abstractmethod
-    def infer(self, assign: Assign[Value], ctx: C_contra) -> Optional[I_co]:
+    def infer(self, assign: Assign[Value], ctx: C_contra) -> I_co | None:
         raise NotImplementedError
 
 
@@ -164,7 +152,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         self,
         arcs: Iterable[VarArc],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
-    ) -> Tuple[Optional[DomainSet[Value]], bool]:
+    ) -> tuple[DomainSet[Value] | None, bool]:
         """
         Implements AC-3.1 (Zhang, Yap)
 
@@ -204,7 +192,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
 
     def infer(
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
-    ) -> Optional[DomainSet[Value]]:
+    ) -> DomainSet[Value] | None:
         revised_domains, _ = self(
             arcs=self.arc_iter,
             domains=DomainSetMut(assign >> ctx),
@@ -212,7 +200,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         return revised_domains
 
 
-Edge: TypeAlias = Tuple[int, int]
+Edge: TypeAlias = tuple[int, int]
 
 
 @dataclass(frozen=True)
@@ -234,25 +222,25 @@ class ValueGraph(Generic[Value]):
     xs: Sequence[Var]
     vs: Sequence[Value]
     vs_dom: Mapping[Edge, Value]
-    edges: Set[Edge]
+    edges: set[Edge]
     adj: Sequence[Sequence[int]]
 
     @classmethod
     def new(
         cls,
-        xs: Sequence[Tuple[Var, Optional[Transform[Value]]]],
+        xs: Sequence[tuple[Var, Transform[Value] | None]],
         ds: Sequence[Domain[Value]],
     ) -> "ValueGraph[Value]":
 
         vs = cls._values(xs, ds)
         vals = {v: j for j, v in enumerate(vs)}
 
-        vs_dom: Dict[Edge, Value] = {}
-        edges: Set[Edge] = set()
-        adj: List[List[int]] = []
+        vs_dom: dict[Edge, Value] = {}
+        edges: set[Edge] = set()
+        adj: list[list[int]] = []
 
         for i, (x, f) in enumerate(xs):
-            adj_x: List[int] = []
+            adj_x: list[int] = []
 
             for v_dom in ds[x]:
                 # TODO: f is re-evaluated here => cache under key (x, v_dom)
@@ -271,10 +259,10 @@ class ValueGraph(Generic[Value]):
     @classmethod
     def _values(
         cls,
-        xs: Sequence[Tuple[Var, Optional[Transform[Value]]]],
+        xs: Sequence[tuple[Var, Transform[Value] | None]],
         ds: Sequence[Domain[Value]],
-    ) -> List[Value]:
-        vs: Set[Value] = set()
+    ) -> list[Value]:
+        vs: set[Value] = set()
         for x, f in xs:
             vs.update(map(f, ds[x]) if f is not None else ds[x])
         return list(vs)
@@ -296,14 +284,14 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
     def infer(
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
-    ) -> Optional[DomainSet[Value]]:
+    ) -> DomainSet[Value] | None:
         revised_domains, _ = self(domains=DomainSetMut(assign >> ctx))
         return revised_domains
 
     def __call__(
         self,
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
-    ) -> Tuple[Optional[DomainSet[Value]], bool]:
+    ) -> tuple[DomainSet[Value] | None, bool]:
 
         if not isinstance(domains, DomainSetMut):
             domains = DomainSetMut([d.copy() for d in domains])
@@ -338,7 +326,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         self,
         constraint: AllDiff[Variable, Value],
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
-    ) -> Tuple[Optional[DomainSet[Value]], bool]:
+    ) -> tuple[DomainSet[Value] | None, bool]:
         """
         Infer inconsistent domain values in given global `AllDiff` constraint.
 
@@ -412,12 +400,12 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         cls,
         n: int,
         n_vals: int,
-        edges: Set[Edge],
-        matching: Set[Edge],
-    ) -> Set[Edge]:
+        edges: set[Edge],
+        matching: set[Edge],
+    ) -> set[Edge]:
         # construct directed G_M = (xs + ys, edges with reversed e not in M)
         #  => variable if node < n else value
-        graph: List[List[int]] = [[] for _ in range(n + n_vals)]
+        graph: list[list[int]] = [[] for _ in range(n + n_vals)]
         # XXX: is this really the best approach?
         #  => alternative: [True] * len(graph)
         free = set(range(len(graph)))
@@ -480,7 +468,7 @@ class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
 
     def infer(
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
-    ) -> Optional[DomainSet[Value]]:
+    ) -> DomainSet[Value] | None:
         domains = DomainSetMut(assign >> ctx)
         revised = True
 

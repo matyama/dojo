@@ -1,10 +1,9 @@
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Sequence, Set, TypeAlias
+from typing import TypeAlias
 
 Graph: TypeAlias = Sequence[Sequence[int]]
-Component: TypeAlias = Set[int]
-
-Stack: TypeAlias = Optional["Node"]
+Component: TypeAlias = set[int]
 
 
 @dataclass
@@ -17,7 +16,7 @@ class Node:
     lowlink: int
 
     # stack data
-    pred: Optional["Node"]
+    pred: "Node | None"
     instack: bool
 
     @classmethod
@@ -29,11 +28,14 @@ class Node:
         return self.index == 0
 
 
+Stack: TypeAlias = Node | None
+
+
 class Tarjan:
     """Class representing the global state of Tarjan's SCC algorithm"""
 
     _graph: Graph
-    _nodes: Dict[int, Node]
+    _nodes: dict[int, Node]
     _stack: Stack
     _index: int
 
@@ -99,7 +101,7 @@ class Tarjan:
             yield self._scc_pop(n)
 
 
-def strongly_connected_components(graph: Graph) -> List[Component]:
+def strongly_connected_components(graph: Graph) -> list[Component]:
     """
     Finds strongly connected components of given directed graph using Tarjan's
     SCC algorithm.
@@ -109,7 +111,7 @@ def strongly_connected_components(graph: Graph) -> List[Component]:
     """
     search = Tarjan(graph)
 
-    components: List[Component] = []
+    components: list[Component] = []
     for n in search.iter_nodes():
         if n.unvisited:
             components.extend(search.find_scc(n))
@@ -117,7 +119,7 @@ def strongly_connected_components(graph: Graph) -> List[Component]:
     return components
 
 
-def tarjan_scc(graph: Graph) -> List[int]:
+def tarjan_scc(graph: Graph) -> list[int]:
     """
     Finds SCC in the same way as `strongly_connected_components` but rather
     than a set of components this function returns an inverse mapping

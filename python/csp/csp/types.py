@@ -1,23 +1,7 @@
 from abc import abstractmethod
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass
-from typing import (
-    Callable,
-    Dict,
-    Generic,
-    Hashable,
-    List,
-    Protocol,
-    Set,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-    runtime_checkable,
-)
-
-# TODO: conform to typeing best practices:
-#  - https://typing.readthedocs.io/en/latest/source/best_practices.html
-#  - specifically: `MyType | None` instead of `Optional` and `list[A]` etc.
-#  - see the following list: https://peps.python.org/pep-0585/#implementation
+from typing import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 
 # XXX: having to resort to `@runtime_checkable` is really sad
@@ -95,9 +79,9 @@ class HasVar(Protocol, Generic[Variable]):
     var: Variable
 
 
-Arc: TypeAlias = Tuple[Variable, Variable]
-VarArc: TypeAlias = Tuple[Var, Var]
-VArc: TypeAlias = Tuple[Variable, Var, Variable, Var]
+Arc: TypeAlias = tuple[Variable, Variable]
+VarArc: TypeAlias = tuple[Var, Var]
+VArc: TypeAlias = tuple[Variable, Var, Variable, Var]
 
 Value = TypeVar("Value")
 OrdValue = TypeVar("OrdValue", bound=Ord)
@@ -116,8 +100,8 @@ NumValue = TypeVar("NumValue", bound=Num)
 #       this requires linked-list to remove and reconnect in O(1)
 #    => interval linked-list is empty => domain is empty
 #    => interval linked-list is sorted => remove => logarithmic lookup
-Domain: TypeAlias = Set[Value]
-DomainSet: TypeAlias = List[Domain[Value]]
+Domain: TypeAlias = set[Value]
+DomainSet: TypeAlias = list[Domain[Value]]
 
 
 # TODO: DomainSetMut = NewType("DomainSetMut", DomainSet)
@@ -136,7 +120,7 @@ class VarTransform(Generic[Variable, Value]):
     f: Transform[Value]
 
 
-Assignment: TypeAlias = Dict[Var, Value]
+Assignment: TypeAlias = dict[Var, Value]
 
 # An assignment but indexed by domain `Variable`s instead of internal `Var`s
-Solution: TypeAlias = Dict[Variable, Value]
+Solution: TypeAlias = dict[Variable, Value]

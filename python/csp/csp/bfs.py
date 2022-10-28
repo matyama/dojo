@@ -1,15 +1,16 @@
 from collections import deque
-from typing import Deque, Iterable, Optional, Sequence, Tuple, TypeAlias
+from collections.abc import Iterable, Sequence
+from typing import TypeAlias
 
 Node: TypeAlias = int
-Edge: TypeAlias = Tuple[int, int]
+Edge: TypeAlias = tuple[int, int]
 Graph: TypeAlias = Sequence[Sequence[Node]]
 
 
 def bfs_walk(
     graph: Graph,
     init: Node,
-    queue: Optional[Deque[Node]] = None,
+    queue: deque[Node] | None = None,
 ) -> Iterable[Edge]:
     queue = queue if queue is not None else deque(maxlen=len(graph))
 
@@ -28,6 +29,6 @@ def bfs_walk(
 
 
 def bfs(graph: Graph, inits: Iterable[Node]) -> Iterable[Edge]:
-    queue: Deque[Node] = deque(maxlen=len(graph))
+    queue: deque[Node] = deque(maxlen=len(graph))
     for init in inits:
         yield from bfs_walk(graph, init, queue)

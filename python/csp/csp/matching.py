@@ -1,28 +1,18 @@
 import sys
 from collections import deque
-from typing import (
-    Deque,
-    Iterable,
-    List,
-    Optional,
-    Sequence,
-    Set,
-    Tuple,
-    TypeAlias,
-    TypeVar,
-    cast,
-)
+from collections.abc import Iterable, Sequence
+from typing import TypeAlias, TypeVar, cast
 
 X = TypeVar("X")
 Y = TypeVar("Y")
 
 
-Edge: TypeAlias = Tuple[X, Y]
+Edge: TypeAlias = tuple[X, Y]
 
 
 def max_bipartite_matching(
-    xs: Sequence[X], ys: Sequence[Y], edges: Set[Edge[X, Y]]
-) -> Set[Edge[X, Y]]:
+    xs: Sequence[X], ys: Sequence[Y], edges: set[Edge[X, Y]]
+) -> set[Edge[X, Y]]:
     """
     Find a maximum matching in given bipartite graph `G = (xs, ys, edges)`.
 
@@ -33,9 +23,9 @@ def max_bipartite_matching(
     """
 
     # matching[j] = x if (x, ys[j]) in max_matching else None
-    matching: List[Optional[X]] = [None] * len(ys)
+    matching: list[X | None] = [None] * len(ys)
 
-    def search(x: X, m: List[Optional[X]], seen: List[bool]) -> bool:
+    def search(x: X, m: list[X | None], seen: list[bool]) -> bool:
         for j, y in enumerate(ys):
             if (x, y) in edges and not seen[j]:
                 seen[j] = True
@@ -50,10 +40,10 @@ def max_bipartite_matching(
     return {(x, ys[j]) for j, x in enumerate(matching) if x is not None}
 
 
-# XXX: alternatively take `edges: Set[Edge[X, Y]]`
+# XXX: alternatively take `edges: set[Edge[X, Y]]`
 def hopcroft_karp(
     xs: Sequence[X], ys: Sequence[Y], adj: Sequence[Sequence[int]]
-) -> Set[Edge[X, Y]]:
+) -> set[Edge[X, Y]]:
     """
     Hopcroft & Karp (1973):
      - Input: bipartite graph `G = (xs, ys, <edges defined by adj>)`
@@ -79,7 +69,7 @@ def hopcroft_karp(
         for v in adj[u - 1]:
             yield v + 1
 
-    def bfs(q: Deque[int]) -> bool:
+    def bfs(q: deque[int]) -> bool:
         for u in range(1, m + 1):
             if pair_u[u] == nil:
                 dist[u] = 0
@@ -114,7 +104,7 @@ def hopcroft_karp(
         dist[u] = inf
         return False
 
-    queue: Deque[int] = deque(maxlen=m + 1)
+    queue: deque[int] = deque(maxlen=m + 1)
     while bfs(queue):
         for u in range(1, m + 1):
             if pair_u[u] == nil:

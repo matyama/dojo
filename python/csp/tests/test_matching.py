@@ -1,5 +1,5 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import List, Sequence, Set, Tuple
 
 import pytest
 
@@ -10,14 +10,14 @@ from csp.matching import hopcroft_karp, max_bipartite_matching
 class BipGraph:
     xs: Sequence[int]
     ys: Sequence[str]
-    edges: Set[Tuple[int, str]]
+    edges: set[tuple[int, str]]
 
     @property
-    def adj(self) -> List[List[int]]:
+    def adj(self) -> list[list[int]]:
         xs_ix = {x: i for i, x in enumerate(self.xs)}
         ys_ix = {y: j for j, y in enumerate(self.ys)}
 
-        adj: List[List[int]] = [[] for _ in self.xs]
+        adj: list[list[int]] = [[] for _ in self.xs]
         for x, y in self.edges:
             i, j = xs_ix[x], ys_ix[y]
             adj[i].append(j)
@@ -51,7 +51,7 @@ def example() -> BipGraph:
 
 
 def validate_max_matching(
-    edges: Set[Tuple[int, str]], matching: Set[Tuple[int, str]]
+    edges: set[tuple[int, str]], matching: set[tuple[int, str]]
 ) -> None:
     xs = [x for x, _ in matching]
     ys = [y for _, y in matching]
@@ -77,8 +77,5 @@ def test_max_matching(graph: BipGraph) -> None:
 
 
 def test_hopcroft_karp(graph: BipGraph) -> None:
-
     matching = hopcroft_karp(xs=graph.xs, ys=graph.ys, adj=graph.adj)
-    print(matching)
-
     validate_max_matching(edges=graph.edges, matching=matching)
