@@ -2,6 +2,7 @@ import sys
 from collections import Counter
 from collections.abc import Iterable, Sequence
 from functools import partial
+from multiprocessing import Pool, cpu_count
 
 from csp.heuristics import MRV, LeastConstraining
 from csp.inference import InferenceEngine
@@ -10,7 +11,9 @@ from csp.scc import strongly_connected_components
 from csp.types import Assignment, Domain, Solution, Value, Var, Variable
 
 
-def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
+def solve(
+    csp: CSP[Variable, Value], processes: int | None = None
+) -> Solution[Variable, Value]:
 
     # TODO: contextualize this (decorator / ctx manager)
     #  - https://stackoverflow.com/a/50120316
@@ -22,10 +25,21 @@ def solve(csp: CSP[Variable, Value]) -> Solution[Variable, Value]:
         case [orig]:
             return _solve(orig)
         case subs:
+            processes = processes if processes is not None else cpu_count()
             # print(f">>> CSP intance split into {len(subs)} independent CSPs")
-            # TODO: solve multiple independent CSPs in parallel
-            solutions: Iterable[Solution[Variable, Value]] = map(_solve, subs)
-            solution = {var: val for s in solutions for var, val in s.items()}
+            if processes > 0:
+                with Pool(processes=processes) as pool:
+                    solution = {
+                        var: val
+                        for s in pool.imap_unordered(_solve, subs)
+                        for var, val in s.items()
+                    }
+            else:
+                solution = {
+                    var: val
+                    for s in map(_solve, subs)
+                    for var, val in s.items()
+                }
             return solution if len(solution) == csp.num_vars else {}
 
 
