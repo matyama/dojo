@@ -10,7 +10,6 @@ from csp.types import (
     Arc,
     HasVar,
     NumValue,
-    Ord,
     OrdValue,
     Transform,
     Value,
@@ -164,86 +163,34 @@ class Different(
     op: str = "!="
 
 
-# pylint: disable=too-few-public-methods
-class LessEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(
-        self,
-        x: Variable | VarTransform[Variable, Value],
-        y: Variable | VarTransform[Variable, Value],
-    ) -> None:
-        def pred(x: Value, y: Value) -> bool:
-            # XXX: dymamic check => improve
-            #  - also x is Ord shoudl imply y is Ord
-            assert isinstance(x, Ord) and isinstance(y, Ord)
-            return x <= y
-
-        super().__init__(x, y, pred, op="<=")
+@dataclass(frozen=True)
+class LessEq(Generic[Variable, OrdValue], PredicateConst[Variable, OrdValue]):
+    pred: Callable[[OrdValue, OrdValue], bool] = operator.le
+    op: str = "<="
 
 
-# pylint: disable=too-few-public-methods
-class LessThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(
-        self,
-        x: Variable | VarTransform[Variable, Value],
-        y: Variable | VarTransform[Variable, Value],
-    ) -> None:
-        def pred(x: Value, y: Value) -> bool:
-            assert isinstance(x, Ord) and isinstance(y, Ord)
-            return x < y
-
-        super().__init__(x, y, pred, op="<")
+@dataclass(frozen=True)
+class LessThan(
+    Generic[Variable, OrdValue], PredicateConst[Variable, OrdValue]
+):
+    pred: Callable[[OrdValue, OrdValue], bool] = operator.lt
+    op: str = "<"
 
 
-# pylint: disable=too-few-public-methods
-class GreaterEq(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(
-        self,
-        x: Variable | VarTransform[Variable, Value],
-        y: Variable | VarTransform[Variable, Value],
-    ) -> None:
-        def pred(x: Value, y: Value) -> bool:
-            assert isinstance(x, Ord) and isinstance(y, Ord)
-            return x >= y
-
-        super().__init__(x, y, pred, op=">=")
+@dataclass(frozen=True)
+class GreaterEq(
+    Generic[Variable, OrdValue], PredicateConst[Variable, OrdValue]
+):
+    pred: Callable[[OrdValue, OrdValue], bool] = operator.ge
+    op: str = ">="
 
 
-# pylint: disable=too-few-public-methods
-class GreaterThan(Generic[Variable, Value], PredicateConst[Variable, Value]):
-    def __init__(
-        self,
-        x: Variable | VarTransform[Variable, Value],
-        y: Variable | VarTransform[Variable, Value],
-    ) -> None:
-        def pred(x: Value, y: Value) -> bool:
-            assert isinstance(x, Ord) and isinstance(y, Ord)
-            return x > y
-
-        super().__init__(x, y, pred, op=">")
-
-
-# @dataclass(frozen=True)
-# class LessEq(Generic[Value], PredicateConst[Value]):
-#    pred: Callable[[Value, Value], bool] = operator.le
-#    op: str = "<="
-#
-#
-# @dataclass(frozen=True)
-# class LessThan(Generic[Value], PredicateConst[Value]):
-#    pred: Callable[[Value, Value], bool] = operator.lt
-#    op: str = "<"
-#
-#
-# @dataclass(frozen=True)
-# class GreaterEq(Generic[Value], PredicateConst[Value]):
-#    pred: Callable[[Value, Value], bool] = operator.ge
-#    op: str = ">="
-#
-#
-# @dataclass(frozen=True)
-# class GreaterThan(Generic[Value], PredicateConst[Value]):
-#    pred: Callable[[Value, Value], bool] = operator.gt
-#    op: str = ">"
+@dataclass(frozen=True)
+class GreaterThan(
+    Generic[Variable, OrdValue], PredicateConst[Variable, OrdValue]
+):
+    pred: Callable[[OrdValue, OrdValue], bool] = operator.gt
+    op: str = ">"
 
 
 class Space2D(Enum):

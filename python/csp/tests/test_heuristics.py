@@ -1,9 +1,9 @@
 from csp.heuristics import MRV, LeastConstraining
-from csp.model import CSP
+from csp.model import OrdCSP
 
 
 def test_mrv() -> None:
-    csp = CSP[str, int]()
+    csp = OrdCSP[str, int]()
 
     xs = [csp["x"], csp["y"], csp["z"], csp["w"]]
     x, y, z, w = xs
@@ -30,7 +30,7 @@ def test_mrv() -> None:
 
 def test_least_constraining_domain_sort() -> None:
 
-    csp = CSP[str, int]()
+    csp = OrdCSP[str, int]()
 
     xs = [csp["x"], csp["y"], csp["z"], csp["w"]]
     ds = [{1, 2, 3}, {1, 2, 3}, {2, 3, 4}, {2}]

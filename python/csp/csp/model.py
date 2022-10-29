@@ -21,7 +21,9 @@ from csp.types import (
     Assignment,
     Domain,
     DomainSet,
-    Num,
+    HasVar,
+    NumValue,
+    OrdValue,
     Solution,
     Value,
     Var,
@@ -43,23 +45,6 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
     def __or__(self, p: Callable[[Value], bool]) -> Unary[Variable, Value]:
         return Unary(x=self.var, p=p)
 
-    # FIXME: get rid of the dynamic check and resove type ignore
-    #  - `Num` must be `@runtime_checkable` to make this working
-    def __add__(self, y: Value) -> VarTransform[Variable, Value]:
-        # NOTE: y: Num => Value: NumValue => x: Num
-        assert isinstance(y, Num)
-        return VarTransform(x=self.var, f=lambda x: x + y)  # type: ignore
-
-    def __sub__(self, y: Value) -> VarTransform[Variable, Value]:
-        # NOTE: y: Num => Value: NumValue => x: Num
-        assert isinstance(y, Num)
-        return VarTransform(x=self.var, f=lambda x: x - y)  # type: ignore
-
-    def __mul__(self, y: Value) -> VarTransform[Variable, Value]:
-        # NOTE: y: Num => Value: NumValue => x: Num
-        assert isinstance(y, Num)
-        return VarTransform(x=self.var, f=lambda x: x * y)  # type: ignore
-
     def __eq__(self, y: object) -> Same[Variable, Value]:  # type: ignore
         assert isinstance(y, self.__class__)
         return Same(x=self.var, y=y.var)
@@ -68,33 +53,43 @@ class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
         assert isinstance(y, self.__class__)
         return Different(x=self.var, y=y.var)
 
-    # XXX: this combinator should only be available to OrdValue
-    #  - check dynamically => somehow reveal LessEq[OrdValue]
-    #  - assert statically => probably requires splitting VarCombinator
-    #  - NOTE: CSP instance always has _single_ concrete Value
+
+class OrdX(Generic[Variable, OrdValue], X[Variable, OrdValue]):
     def __le__(
-        self, y: "X[Variable, Value]" | Variable
-    ) -> LessEq[Variable, Value]:
-        return LessEq(x=self.var, y=y.var if isinstance(y, X) else y)
+        self, y: "OrdX[Variable, OrdValue]" | Variable
+    ) -> LessEq[Variable, OrdValue]:
+        return LessEq(x=self.var, y=y.var if isinstance(y, HasVar) else y)
 
     def __lt__(
-        self, y: "X[Variable, Value]" | Variable
-    ) -> LessThan[Variable, Value]:
-        return LessThan(x=self.var, y=y.var if isinstance(y, X) else y)
+        self, y: "OrdX[Variable, OrdValue]" | Variable
+    ) -> LessThan[Variable, OrdValue]:
+        return LessThan(x=self.var, y=y.var if isinstance(y, HasVar) else y)
 
     def __ge__(
-        self, y: "X[Variable, Value]" | Variable
-    ) -> GreaterEq[Variable, Value]:
-        return GreaterEq(x=self.var, y=y.var if isinstance(y, X) else y)
+        self, y: "OrdX[Variable, OrdValue]" | Variable
+    ) -> GreaterEq[Variable, OrdValue]:
+        return GreaterEq(x=self.var, y=y.var if isinstance(y, HasVar) else y)
 
     def __gt__(
-        self, y: "X[Variable, Value]" | Variable
-    ) -> GreaterThan[Variable, Value]:
-        return GreaterThan(x=self.var, y=y.var if isinstance(y, X) else y)
+        self, y: "OrdX[Variable, OrdValue]" | Variable
+    ) -> GreaterThan[Variable, OrdValue]:
+        return GreaterThan(x=self.var, y=y.var if isinstance(y, HasVar) else y)
+
+
+class NumX(Generic[Variable, NumValue], OrdX[Variable, NumValue]):
+    def __add__(self, y: NumValue) -> VarTransform[Variable, NumValue]:
+        return VarTransform(x=self.var, f=lambda x: x + y)
+
+    def __sub__(self, y: NumValue) -> VarTransform[Variable, NumValue]:
+        return VarTransform(x=self.var, f=lambda x: x - y)
+
+    def __mul__(self, y: NumValue) -> VarTransform[Variable, NumValue]:
+        return VarTransform(x=self.var, f=lambda x: x * y)
 
 
 VarDom: TypeAlias = tuple[
-    Variable | X[Variable, Value], Domain[Value] | Iterable[Value]
+    Variable | HasVar[Variable],
+    Domain[Value] | Iterable[Value],
 ]
 
 
@@ -124,7 +119,6 @@ class CSP(Generic[Variable, Value]):
         self._scoped_global = []
         self._binary_only = bool(os.environ.get("BINARY_ONLY", binary_only))
 
-    # pylint: disable=too-many-branches
     def __iadd__(
         self,
         item: VarDom[Variable, Value]
@@ -133,6 +127,17 @@ class CSP(Generic[Variable, Value]):
         | Unary[Variable, Value]
         | AllDiff[Variable, Value],
     ) -> "CSP[Variable, Value]":
+        self._register(item)
+        return self
+
+    def _register(
+        self,
+        item: VarDom[Variable, Value]
+        | Iterable[VarDom[Variable, Value]]
+        | BinConst[Variable, Value]
+        | Unary[Variable, Value]
+        | AllDiff[Variable, Value],
+    ) -> None:
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
 
         if isinstance(item, tuple):
@@ -159,12 +164,10 @@ class CSP(Generic[Variable, Value]):
         else:
             self._register_binary(item)
 
-        return self
-
     def _register_var(self, item: VarDom[Variable, Value]) -> None:
         x, d = item
 
-        if isinstance(x, X):
+        if isinstance(x, HasVar):
             x = x.var
 
         # materialize domain if necessary
@@ -252,7 +255,7 @@ class CSP(Generic[Variable, Value]):
 
     def __setitem__(
         self,
-        x: Variable | X[Variable, Value],
+        x: Variable | HasVar[Variable],
         d: Domain[Value] | Iterable[Value],
     ) -> None:
         """Alterative syntax for `csp += x, d`"""
@@ -324,6 +327,48 @@ class CSP(Generic[Variable, Value]):
             for y, c in self._consts[x].items()
             if (y_val := a.get(y)) is not None
         )
+
+
+class OrdCSP(Generic[Variable, OrdValue], CSP[Variable, OrdValue]):
+    """CSP builder that provides binders for variables that support OrdValue"""
+
+    def __iadd__(
+        self,
+        item: VarDom[Variable, OrdValue]
+        | Iterable[VarDom[Variable, OrdValue]]
+        | BinConst[Variable, OrdValue]
+        | Unary[Variable, OrdValue]
+        | AllDiff[Variable, OrdValue],
+    ) -> "OrdCSP[Variable, OrdValue]":
+        self._register(item)
+        return self
+
+    def __getitem__(self, x: Variable) -> OrdX[Variable, OrdValue]:
+        """
+        Create new `Variable` wrapper `OrdX` and bind the `OrdValue` type to it
+        """
+        return OrdX(var=x)
+
+
+class NumCSP(Generic[Variable, NumValue], OrdCSP[Variable, NumValue]):
+    """CSP builder that provides binders for variables that support NumValue"""
+
+    def __iadd__(
+        self,
+        item: VarDom[Variable, NumValue]
+        | Iterable[VarDom[Variable, NumValue]]
+        | BinConst[Variable, NumValue]
+        | Unary[Variable, NumValue]
+        | AllDiff[Variable, NumValue],
+    ) -> "NumCSP[Variable, NumValue]":
+        self._register(item)
+        return self
+
+    def __getitem__(self, x: Variable) -> NumX[Variable, NumValue]:
+        """
+        Create new `Variable` wrapper `NumX` and bind the `NumValue` type to it
+        """
+        return NumX(var=x)
 
 
 @dataclass(frozen=True)

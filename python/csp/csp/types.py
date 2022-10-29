@@ -4,9 +4,6 @@ from dataclasses import dataclass
 from typing import Generic, Protocol, TypeAlias, TypeVar, runtime_checkable
 
 
-# XXX: having to resort to `@runtime_checkable` is really sad
-#  - also it only checks presence of methods, not their signatures
-@runtime_checkable
 class Eq(Protocol):
     @abstractmethod
     def __eq__(self, other: object) -> bool:
@@ -20,7 +17,6 @@ OrdSelf = TypeVar("OrdSelf", bound="Ord")
 
 
 # Source: https://github.com/python/typing/issues/59#issuecomment-353878355
-@runtime_checkable
 class Ord(Eq, Protocol):
     @abstractmethod
     def __lt__(self: OrdSelf, rhs: OrdSelf) -> bool:
@@ -36,7 +32,6 @@ class Ord(Eq, Protocol):
         return not self < rhs
 
 
-@runtime_checkable
 class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
     """Marker protocol for types that are Eq + Hashable"""
 
@@ -55,8 +50,6 @@ NumSelf = TypeVar("NumSelf", bound="Num")
 
 
 # XXX: Div (int is not Div!), Neg, [Zero, One]
-# XXX: `@runtime_checkable` only added due to `X.__add__`
-@runtime_checkable
 class Num(Ord, Protocol):
     def __add__(self: NumSelf, rhs: NumSelf) -> NumSelf:
         raise NotImplementedError
@@ -83,7 +76,8 @@ Arc: TypeAlias = tuple[Variable, Variable]
 VarArc: TypeAlias = tuple[Var, Var]
 VArc: TypeAlias = tuple[Variable, Var, Variable, Var]
 
-Value = TypeVar("Value")
+# TODO: realistically, the bound should be Hash (see for instance Domain)
+Value = TypeVar("Value", bound=Eq)
 OrdValue = TypeVar("OrdValue", bound=Ord)
 NumValue = TypeVar("NumValue", bound=Num)
 

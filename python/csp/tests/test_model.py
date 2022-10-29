@@ -1,8 +1,8 @@
-from csp.model import CSP, AssignCtx
+from csp.model import AssignCtx, OrdCSP
 
 
 def test_model() -> None:
-    csp = CSP[str, int]()
+    csp = OrdCSP[str, int]()
 
     xs = [csp["x1"], csp["x2"]]
     ds = [{0, 1, 2}, {2, 3}]

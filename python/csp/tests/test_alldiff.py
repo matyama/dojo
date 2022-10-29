@@ -4,7 +4,7 @@ import pytest
 
 from csp.constraints import AllDiff
 from csp.inference import AC3, AllDiffInference
-from csp.model import CSP, Assign
+from csp.model import CSP, Assign, NumCSP
 from csp.types import DomainSet
 
 
@@ -93,7 +93,7 @@ def test_alldiff_inference(
 
 def test_alldiff_expr() -> None:
 
-    csp = CSP[str, int]()
+    csp = NumCSP[str, int]()
 
     n = 4
 

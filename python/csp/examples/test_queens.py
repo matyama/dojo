@@ -4,7 +4,7 @@ from typing import TypeAlias
 import pytest
 
 from csp.constraints import AllDiff
-from csp.model import CSP, Model
+from csp.model import CSP, Model, NumCSP
 from csp.solver import solve
 from csp.types import Solution
 
@@ -18,7 +18,7 @@ class Queens(Model[int, list[Row], Queen, Row]):
         assert n > 0
 
         # https://developers.google.com/optimization/cp/queens
-        csp = CSP[Queen, Row]()
+        csp = NumCSP[Queen, Row]()
 
         xs = [csp[x] for x in range(n)]
         ds = [range(n)] * n

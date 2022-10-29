@@ -2,13 +2,13 @@ import pytest
 
 from csp.constraints import Linear, Space2D
 from csp.inference import AC3, RevisionCtx, revise
-from csp.model import CSP, Assign
+from csp.model import CSP, Assign, OrdCSP
 from csp.types import DomainSet
 
 
 @pytest.fixture(name="a")
 def csp_a() -> CSP[str, int]:
-    csp = CSP[str, int]()
+    csp = OrdCSP[str, int]()
 
     x1, x2, x3 = csp["x1"], csp["x2"], csp["x3"]
 

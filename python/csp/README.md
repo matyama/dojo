@@ -1,6 +1,7 @@
 # CSP
 Pure Python implementation of a
-[CSP](https://en.wikipedia.org/wiki/Constraint_satisfaction_problem) solver.
+[CSP](https://en.wikipedia.org/wiki/Constraint_satisfaction_problem)
+solver.
 
 # Instance builder API
 Current implementation supports basic problem building API:
@@ -25,11 +26,13 @@ coloring = solve(csp)
 ## Binary Constraints
 - `Eq` value types: `csp += x == y` or `csp += x != y`
 - `Ord` value types: `csp += x < y`, similarly for `<=`, `>=`, and `>`
-- `Num` value types: `Linear` can model planar spaces such as `a*x + b*y = c`
-  - Note: `Linear` can be used in its generalized form `a*f(x) + b*g(y) = c` by
-    specifying `x` (and `y`) as `VarTransform(x, f)`
+- `Num` value types: `Linear` can model planar spaces such as
+  `a*x + b*y = c`
+  - Note: `Linear` can be used in its generalized form
+    `a*f(x) + b*g(y) = c` by specifying `x` (and `y`) as
+    `VarTransform(x, f)`
 
-Convenienly, binary constraints can be combined together:
+Conveniently, binary constraints can be combined together:
 ```python
 csp += (x >= y) & (x > z) & (x >= w)
 ```
@@ -63,7 +66,8 @@ The `solve(csp)` algorithm is standard _backtracking search_ with
 _arc consistency_ checking (**AC-3.1**) and heuristics:
  - *Variable selection*: _minimal remaining values_ (`MRV`) with
    _degree heuristic_ for tie-breaking
- - *Value prioritization*: _least constraining value first_ (`LeastConstrainig`)
+ - *Value prioritization*: _least constraining value first_
+   (`LeastConstrainig`)
 
 # Environment
  - `BINARY_ONLY` controls whether CSP will turn all global (currently
@@ -80,28 +84,30 @@ can be solved independently. Currently this is done in sequence but
 extension to parallel execution is possible.
 
 # Typing
-This CSP library is fully type annotated and type-checked via `mypy` with the
-exeption of some limitations mentioned below.
+This CSP library is fully type annotated and type-checked via `mypy`
+with the exception of some limitations mentioned below.
 
 Additionally, it passes `flake8` and `pylint` checks.
 
 ## Known issues & limitations
- - The type variable `Value` is currently not bound to `Eq`/`Ord` typeclass, so
-   when one constructs a binary contraint `x < y` for types which do not
-   implement `__lt__`, a runtime error is raised.
- - Similar dynamic check is used when constructing simple `VarTransform`s such
-   as `x + 1` (here values mut be instances of `Num`)
- - CSP instance is homogeneous in its variable and value type, meaning that if
-   one uses for instance the `Linear` constraint, the `Value` type must be an
-   instnce of `Num` even though only a subset of variables is involved.
+ - A small inconvenience is that if one wants to use binders supporting
+   ordering operations (e.g. `x < y`), `OrdCSP` must be used to enforce
+   `OrdValue`. Similarly with arithmetic operations and `NumCSP`.
+ - Plain `Value` currently has an `Eq` bound, but realistically it
+   should be `Hash` as well since `Domain` stores values in a `set`.
+ - CSP instance is homogeneous in its variable and value type, meaning
+   that if one uses for instance the `Linear` constraint, the `Value`
+   type must be an instance of `Num` even though only a subset of
+   variables is involved.
 
 
 # Benchmarks
-Profiling scripts and benchmarks can be found in directory/module `benchmarks`.
+Profiling scripts and benchmarks can be found in directory/module
+`benchmarks`.
 
-One can use the optional dependecy
-[`scalene`](https://github.com/plasma-umass/scalene) to run them for instance as
-follows:
+One can use the optional dependency
+[`scalene`](https://github.com/plasma-umass/scalene) to run them for
+instance as follows:
 ```console
 scalene --cli --cpu-only --profile-only='bench_' benchmarks/bench_matching.py
 ```
