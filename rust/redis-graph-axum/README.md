@@ -9,14 +9,15 @@ The server is backed by a
 Both the idea and parts of implementation is based on
 [this talk](https://youtu.be/HqwY_TyxeJw) on *RedisGraph*.
 
-
 ## Running the example
-First start Redis services from docker compose
+First option is to run everything with a `docker-compose up -d`.
+
+Alternatively, start just Redis services from docker compose
 ```console
-docker-compose up -d
+docker-compose up -d redis redisinsight
 ```
 
-Then run the server using cargo:
+And then run the server using cargo:
 ```console
 cargo run --bin server --release
 ```
@@ -27,6 +28,7 @@ Note that there are few environment variables that control the server
  - `SERVER_PORT` is the port the server will accept connections at
  - `REDIS__URL` is the URL of the Redis instance
  - `RUST_LOG` configures event tracing (logger)
+ - `DOCKER_IMG` specifies the Docker image of the server
 
 All these are pre-configured in `.envrc` which can be set up with tools
 such as `direnv`.
@@ -70,5 +72,4 @@ make crawl
    of dungeon entrance (or a feature like start being a query param)
  - Connection pooling is not set up (due to issue with trait bounds on
    pooled vs driver connections)
- - Server is not dockerized
 
