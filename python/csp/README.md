@@ -87,7 +87,7 @@ extension to parallel execution is possible.
 This CSP library is fully type annotated and type-checked via `mypy`
 with the exception of some limitations mentioned below.
 
-Additionally, it passes `flake8` and `pylint` checks.
+Additionally, it passes `ruff` checks.
 
 ## Known issues & limitations
  - A small inconvenience is that if one wants to use binders supporting

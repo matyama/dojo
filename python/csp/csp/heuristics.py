@@ -8,7 +8,7 @@ from csp.model import CSP
 from csp.types import Domain, Value, Var, Variable
 
 
-class VarSelect(Protocol, Generic[Value]):  # pylint: disable=R0903
+class VarSelect(Protocol, Generic[Value]):
     @abstractmethod
     def __call__(
         self, remaining: Sequence[bool], domains: Sequence[Domain[Value]]
@@ -16,7 +16,7 @@ class VarSelect(Protocol, Generic[Value]):  # pylint: disable=R0903
         raise NotImplementedError
 
 
-class MRV(Generic[Variable, Value], VarSelect[Value]):  # pylint: disable=R0903
+class MRV(Generic[Variable, Value], VarSelect[Value]):
     """
     Min. remaining value (MRV) selection.
 
@@ -54,7 +54,7 @@ class MRV(Generic[Variable, Value], VarSelect[Value]):  # pylint: disable=R0903
         return var
 
 
-class DomainSort(Protocol, Generic[Value]):  # pylint: disable=R0903
+class DomainSort(Protocol, Generic[Value]):
     @abstractmethod
     def __call__(
         self,
@@ -65,7 +65,7 @@ class DomainSort(Protocol, Generic[Value]):  # pylint: disable=R0903
         raise NotImplementedError
 
 
-class LeastConstraining(Generic[Variable, Value], DomainSort[Value]):  # pylint: disable=too-few-public-methods
+class LeastConstraining(Generic[Variable, Value], DomainSort[Value]):
     """
     Heuristic which yields values from the domain of given variable x in order
     of the "least constraining" values.

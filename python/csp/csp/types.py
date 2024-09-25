@@ -32,18 +32,8 @@ class Ord(Eq, Protocol):
         return not self < rhs
 
 
-class Hash(Eq, Hashable, Protocol):  # pylint: disable=too-few-public-methods
+class Hash(Eq, Hashable, Protocol):
     """Marker protocol for types that are Eq + Hashable"""
-
-    # NOTE: re-defintions from `Eq` and `Hashable` to make pylint happy
-
-    @abstractmethod
-    def __eq__(self, other: object) -> bool:
-        raise NotImplementedError
-
-    @abstractmethod
-    def __hash__(self) -> int:
-        return super().__hash__()
 
 
 NumSelf = TypeVar("NumSelf", bound="Num")
@@ -66,7 +56,6 @@ Var: TypeAlias = int
 Variable = TypeVar("Variable", bound=Hash)
 
 
-# pylint: disable=too-few-public-methods
 @runtime_checkable
 class HasVar(Protocol, Generic[Variable]):
     var: Variable

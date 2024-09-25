@@ -4,7 +4,7 @@ import sys
 from types import TracebackType
 
 
-class recursionlimit:  # pylint: disable=invalid-name
+class recursionlimit:
     _limit: int
     _old_limit: int
 

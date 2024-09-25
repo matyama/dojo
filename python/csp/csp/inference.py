@@ -25,7 +25,7 @@ C_contra = TypeVar("C_contra", contravariant=True)
 I_co = TypeVar("I_co", covariant=True)
 
 
-class Inference(Protocol, Generic[C_contra, I_co, Value]):  # pylint: disable=R0903
+class Inference(Protocol, Generic[C_contra, I_co, Value]):
     @abstractmethod
     def infer(self, assign: Assign[Value], ctx: C_contra) -> I_co | None:
         raise NotImplementedError
@@ -54,7 +54,6 @@ class RevisionCtx(Generic[Value]):
         item = self._last.get((x, x_val, y))
         return item if item is not None else (None, -1)
 
-    # pylint: disable=too-many-arguments,too-many-positional-arguments
     def save(self, x: Var, x_val: Value, y: Var, y_val: Value, i: int) -> None:
         """Cache the fact that (x_val, y_val@i) satisfied C(x, y)"""
         self._last[x, x_val, y] = y_val, i
@@ -129,7 +128,7 @@ def revise(
 
 # XXX: explicitly subclass Inference?
 #      `Generic[Value], Inference[AC3Context[Value], DomainSet[Value], Value]`
-class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
+class AC3(Generic[Variable, Value]):
     """Arc consistency mechanism (version 3.1) for binary constraints"""
 
     # XXX: consider making consts and vars args
@@ -272,7 +271,7 @@ class ValueGraph(Generic[Value]):
         return len(self.vs)
 
 
-class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
+class AllDiffInference(Generic[Variable, Value]):
     def __init__(self, csp: CSP[Variable, Value]) -> None:
         self._vars = csp.vars
         # TODO: [c for c in csp.globals if isinstance(c, AllDiff)]
@@ -441,7 +440,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         return edges
 
 
-class InferenceEngine(Generic[Variable, Value]):  # pylint: disable=R0903
+class InferenceEngine(Generic[Variable, Value]):
     """
     Combined inference mechanism that alternates arc and hyper-arc consistency
     as long as input variable domains keep changing (reducing).

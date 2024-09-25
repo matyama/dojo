@@ -11,7 +11,6 @@ class ValueGraph:
     ys: Sequence[int]
     edges: set[tuple[str, int]]
 
-    # pylint: disable=duplicate-code
     @property
     def adj(self) -> list[list[int]]:
         xs_ix = {x: i for i, x in enumerate(self.xs)}

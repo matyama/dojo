@@ -32,7 +32,7 @@ from csp.types import (
 )
 
 
-class X(Generic[Variable, Value]):  # pylint: disable=invalid-name
+class X(Generic[Variable, Value]):
     """Variable wrapper capable of binding into `BinConst`"""
 
     __match_args__ = ("var",)
@@ -194,8 +194,6 @@ class CSP(Generic[Variable, Value]):
         var_a, var_b = item.vars
         # NOTE: asserts that a, b have been registered before
         a, b = self.var(var_a), self.var(var_b)
-        # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
-        # pylint: disable=invalid-sequence-index
         acc = self._consts[a].get(b, ConstSet(var_a, var_b))
         acc &= item
         self._consts[a][b] = acc
@@ -246,8 +244,6 @@ class CSP(Generic[Variable, Value]):
         self, x: Variable, y: Variable
     ) -> BinConst[Variable, Value] | None:
         var_x, var_y = self.var(x), self.var(y)
-        # NOTE: pylint seems to be quite confused (`Var: TypeAlias = int`)
-        # pylint: disable=invalid-sequence-index
         return self._consts[var_x].get(var_y)
 
     def arc(self, x: Var, y: Var) -> Arc[Variable]:

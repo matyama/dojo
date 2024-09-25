@@ -72,7 +72,6 @@ class ConstSet(Generic[Variable, Value], BinConst[Variable, Value]):
         # NOTE: `self._sat` is only called via `__call__` which has already put
         #       (x_val, y_val) in correct order. Therefore it's safe to bypass
         #       the "arc check" in constraints contained in this set
-        # pylint: disable=protected-access
         return all(c._sat(x_val, y_val) for c in self.cs)
 
     def __str__(self) -> str:
