@@ -29,7 +29,6 @@ def test_mrv() -> None:
 
 
 def test_least_constraining_domain_sort() -> None:
-
     csp = OrdCSP[str, int]()
 
     xs = [csp["x"], csp["y"], csp["z"], csp["w"]]

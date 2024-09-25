@@ -88,8 +88,7 @@ class NumX(Generic[Variable, NumValue], OrdX[Variable, NumValue]):
 
 
 VarDom: TypeAlias = tuple[
-    Variable | HasVar[Variable],
-    Domain[Value] | Iterable[Value],
+    Variable | HasVar[Variable], Domain[Value] | Iterable[Value]
 ]
 
 
@@ -306,12 +305,7 @@ class CSP(Generic[Variable, Value]):
     def complete(self, a: Assignment[Value]) -> bool:
         return len(a) == self.num_vars
 
-    def consistent(
-        self,
-        x: Var,
-        x_val: Value,
-        a: Assignment[Value],
-    ) -> bool:
+    def consistent(self, x: Var, x_val: Value, a: Assignment[Value]) -> bool:
         """
         Check if x := x_val is consistent with assignment a under constraints.
 

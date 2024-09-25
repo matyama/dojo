@@ -155,10 +155,7 @@ class Same(Generic[Variable, Value], PredicateConst[Variable, Value]):
 
 
 @dataclass(frozen=True)
-class Different(
-    Generic[Variable, Value],
-    PredicateConst[Variable, Value],
-):
+class Different(Generic[Variable, Value], PredicateConst[Variable, Value]):
     pred: Callable[[Value, Value], bool] = operator.ne
     op: str = "!="
 

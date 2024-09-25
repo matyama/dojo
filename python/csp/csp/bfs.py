@@ -8,9 +8,7 @@ Graph: TypeAlias = Sequence[Sequence[Node]]
 
 
 def bfs_walk(
-    graph: Graph,
-    init: Node,
-    queue: deque[Node] | None = None,
+    graph: Graph, init: Node, queue: deque[Node] | None = None
 ) -> Iterable[Edge]:
     queue = queue if queue is not None else deque(maxlen=len(graph))
 

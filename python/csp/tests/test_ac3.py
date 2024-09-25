@@ -41,16 +41,13 @@ def csp_b() -> CSP[str, int]:
 
 @pytest.fixture(name="instance")
 def dispatch_instance(
-    request: pytest.FixtureRequest,
-    a: CSP[str, int],
-    b: CSP[str, int],
+    request: pytest.FixtureRequest, a: CSP[str, int], b: CSP[str, int]
 ) -> CSP[str, int]:
     instances = {"a": a, "b": b}
     return instances[request.param]
 
 
 def test_revise(a: CSP[str, int]) -> None:
-
     x1, x2, x3 = a.variables
     x1_var, x2_var, x3_var = a.var(x1), a.var(x2), a.var(x3)
     d_x1, d_x2, d_x3 = a.domains

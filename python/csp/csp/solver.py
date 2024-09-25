@@ -110,8 +110,7 @@ def _solve(
     logger.debug("initial stats: %s", stats)
 
     def backtracking_search(
-        ctx: AssignCtx[Value],
-        domains: Sequence[Domain[Value]],
+        ctx: AssignCtx[Value], domains: Sequence[Domain[Value]]
     ) -> Assignment[Value] | None:
         if complete(ctx.assignment):
             return ctx.assignment
@@ -161,10 +160,7 @@ def _solve(
         return None
 
     # Solve Sudoku CSP
-    assignment = backtracking_search(
-        ctx=csp.init(),
-        domains=csp.domains,
-    )
+    assignment = backtracking_search(ctx=csp.init(), domains=csp.domains)
 
     logger.debug("final stats: %s", stats)
 

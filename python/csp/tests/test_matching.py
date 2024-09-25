@@ -68,7 +68,6 @@ def validate_max_matching(
 
 
 def test_max_matching(graph: BipGraph) -> None:
-
     matching = max_bipartite_matching(
         xs=graph.xs, ys=graph.ys, edges=graph.edges
     )

@@ -11,10 +11,7 @@ from csp.types import DomainSet
 @pytest.mark.parametrize(
     "assignment",
     [
-        pytest.param(
-            [("x1", 2), ("x2", 3), ("x3", 1)],
-            id="consistent",
-        ),
+        pytest.param([("x1", 2), ("x2", 3), ("x3", 1)], id="consistent"),
         pytest.param(
             [("x1", 2), ("x2", 3), ("x3", 1), ("x4", 3)],
             id="consistent-extra-assignment",
@@ -64,7 +61,6 @@ def test_alldiff_consistency(assignment: Iterable[tuple[str, int]]) -> None:
 def test_alldiff_inference(
     xs: Sequence[str], ds: DomainSet[int], expected: DomainSet[int]
 ) -> None:
-
     csp = CSP[str, int]()
 
     csp += zip(xs, ds)
@@ -92,7 +88,6 @@ def test_alldiff_inference(
 
 
 def test_alldiff_expr() -> None:
-
     csp = NumCSP[str, int]()
 
     n = 4

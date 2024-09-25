@@ -132,6 +132,9 @@ dmypy.json
 # Poetry
 poetry.lock
 
+# Ruff
+.ruff_cache/
+
 # IDEs
 .vscode/
 

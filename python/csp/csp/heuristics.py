@@ -65,9 +65,7 @@ class DomainSort(Protocol, Generic[Value]):  # pylint: disable=R0903
         raise NotImplementedError
 
 
-class LeastConstraining(
-    Generic[Variable, Value], DomainSort[Value]
-):  # pylint: disable=too-few-public-methods
+class LeastConstraining(Generic[Variable, Value], DomainSort[Value]):  # pylint: disable=too-few-public-methods
     """
     Heuristic which yields values from the domain of given variable x in order
     of the "least constraining" values.

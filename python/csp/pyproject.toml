@@ -12,28 +12,18 @@ keywords = ["CSP", "python", "algorithms"]
 python = "^3.12"
 
 [tool.poetry.dev-dependencies]
-black = "*"
-flake8 = "*"
-flake8-black = "*"
-flake8-comprehensions = "*"
-flake8-isort = "*"
-flake8-mutable = "*"
-flake8-pytest = "*"
 mypy = "*"
-pylint = "*"
+ruff = "*"
 pytest = "*"
 pytest-timeouts = "*"
 scalene = "*"
 
-[tool.black]
+[tool.ruff]
 line-length = 79
-target-version = ['py312']
-skip-string-normalization = true
+target-version = "py312"
 
-[tool.isort]
-multi_line_output = 3
-line_length = 79
-include_trailing_comma = true
+[tool.ruff.format]
+skip-magic-trailing-comma = true
 
 [tool.mypy]
 cache_dir = "/dev/null"
@@ -54,24 +44,6 @@ no_implicit_optional = true
 [[tool.mypy.overrides]]
 module = ["pytest", "_pytest"]
 ignore_missing_imports = true
-
-[tool.pylint.basic]
-good-names = """
-    a,b,c,d,e,f,g,h,i,j,k,m,n,p,q,r,s,t,u,v,w,x,y,z,N,
-    at,cs,c1,c2,df,ds,ex,fn,fs,ls,lq,nq,of,op,pk,pq,ts,vs,
-    xs,x0,x1,x2,x3,ys,y0,y1,y2,
-    Run,_
-"""
-
-[tool.pylint.messages_control]
-disable = [
-    "missing-module-docstring",
-    "missing-class-docstring",
-    "missing-function-docstring",
-    # for development, re-enable when done
-    "fixme",
-]
-
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

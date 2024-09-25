@@ -25,9 +25,7 @@ C_contra = TypeVar("C_contra", contravariant=True)
 I_co = TypeVar("I_co", covariant=True)
 
 
-class Inference(
-    Protocol, Generic[C_contra, I_co, Value]
-):  # pylint: disable=R0903
+class Inference(Protocol, Generic[C_contra, I_co, Value]):  # pylint: disable=R0903
     @abstractmethod
     def infer(self, assign: Assign[Value], ctx: C_contra) -> I_co | None:
         raise NotImplementedError
@@ -194,8 +192,7 @@ class AC3(Generic[Variable, Value]):  # pylint: disable=R0903
         self, assign: Assign[Value], ctx: Sequence[Domain[Value]]
     ) -> DomainSet[Value] | None:
         revised_domains, _ = self(
-            arcs=self.arc_iter,
-            domains=DomainSetMut(assign >> ctx),
+            arcs=self.arc_iter, domains=DomainSetMut(assign >> ctx)
         )
         return revised_domains
 
@@ -288,8 +285,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         return revised_domains
 
     def __call__(
-        self,
-        domains: Sequence[Domain[Value]] | DomainSetMut[Value],
+        self, domains: Sequence[Domain[Value]] | DomainSetMut[Value]
     ) -> tuple[DomainSet[Value] | None, bool]:
         if not isinstance(domains, DomainSetMut):
             domains = DomainSetMut([d.copy() for d in domains])
@@ -394,11 +390,7 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
 
     @classmethod
     def _remove_inconsitent(
-        cls,
-        n: int,
-        n_vals: int,
-        edges: set[Edge],
-        matching: set[Edge],
+        cls, n: int, n_vals: int, edges: set[Edge], matching: set[Edge]
     ) -> set[Edge]:
         # construct directed G_M = (xs + ys, edges with reversed e not in M)
         #  => variable if node < n else value
