@@ -2,7 +2,7 @@ import os
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Generic, Protocol, TypeAlias, TypeVar, cast
+from typing import cast, Generic, Protocol, TypeAlias, TypeVar
 
 from csp.constraints import (
     AllDiff,
@@ -141,33 +141,32 @@ class CSP(Generic[Variable, Value]):
             | AllDiff[Variable, Value]
         ),
     ) -> None:
-        # NOTE: mypy had an issue parsing a `match` version of this if-chain`
+        match item:
+            # NOTE: VarDom(var_dom), but mypy doesn't like type aliases here
+            case tuple(var_dom):
+                self._register_var(var_dom)
 
-        if isinstance(item, tuple):
-            var_dom = cast(VarDom[Variable, Value], item)
-            self._register_var(var_dom)
+            case Unary(var, _):
+                x = self._var_ids.get(var)
+                if x is None:
+                    raise ValueError(f"{var} with domain must first be added")
 
-        elif isinstance(item, Unary):
-            x = self._var_ids.get(item.x)
-            if x is None:
-                raise ValueError(f"{item.x} with domain must first be added")
+                # NOTE: unary constraints can be encoded by directly reducing
+                #       variables's domain
+                self._doms[x] = {v for v in self._doms[x] if item.p(v)}
 
-            # NOTE: unary constraints can be encoded by directly reducing
-            #       variables's domain
-            self._doms[x] = {v for v in self._doms[x] if item.p(v)}
+            # TODO: generalize to global constraints
+            case AllDiff(_, _, _):
+                self._register_global(item)
 
-        # TODO: generalize to global constraints
-        elif isinstance(item, AllDiff):
-            self._register_global(item)
+            case xs if isinstance(xs, Iterable):
+                for vd in xs:
+                    # TODO: this cast makes mypy happy, but is quite sad
+                    var_dom = cast(VarDom[Variable, Value], vd)
+                    self += var_dom
 
-        elif isinstance(item, Iterable):
-            for vd in item:
-                # TODO: this cast makes mypy happy, but is quite unfortunate
-                var_dom = cast(VarDom[Variable, Value], vd)
-                self += var_dom
-
-        else:
-            self._register_binary(item)
+            case const:
+                self._register_binary(const)
 
     def _register_var(self, item: VarDom[Variable, Value]) -> None:
         x, d = item

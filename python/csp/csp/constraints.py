@@ -289,6 +289,8 @@ class AllDiff(Generic[Variable, Value]):
     scope: frozenset[Variable]
     tansforms: Mapping[Variable, Transform[Value]]
 
+    __match_args__ = ("xs", "scope", "transforms")
+
     def __init__(
         self,
         xs: Iterable[
