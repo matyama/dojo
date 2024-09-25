@@ -2,7 +2,7 @@ import os
 from abc import abstractmethod
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import cast, Generic, Protocol, TypeAlias, TypeVar
+from typing import Generic, Protocol, TypeAlias, TypeVar, cast
 
 from csp.constraints import (
     AllDiff,
