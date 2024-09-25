@@ -56,7 +56,7 @@ class RevisionCtx(Generic[Value]):
         item = self._last.get((x, x_val, y))
         return item if item is not None else (None, -1)
 
-    # pylint: disable=too-many-arguments
+    # pylint: disable=too-many-arguments,too-many-positional-arguments
     def save(self, x: Var, x_val: Value, y: Var, y_val: Value, i: int) -> None:
         """Cache the fact that (x_val, y_val@i) satisfied C(x, y)"""
         self._last[x, x_val, y] = y_val, i
@@ -231,7 +231,6 @@ class ValueGraph(Generic[Value]):
         xs: Sequence[tuple[Var, Transform[Value] | None]],
         ds: Sequence[Domain[Value]],
     ) -> "ValueGraph[Value]":
-
         vs = cls._values(xs, ds)
         vals = {v: j for j, v in enumerate(vs)}
 
@@ -292,7 +291,6 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
         self,
         domains: Sequence[Domain[Value]] | DomainSetMut[Value],
     ) -> tuple[DomainSet[Value] | None, bool]:
-
         if not isinstance(domains, DomainSetMut):
             domains = DomainSetMut([d.copy() for d in domains])
 
@@ -304,7 +302,6 @@ class AllDiffInference(Generic[Variable, Value]):  # pylint: disable=R0903
             change = False
 
             for c in self._consts:
-
                 revised_domains, reduced = self.infer_alldiff(c, domains)
                 revised |= reduced
 

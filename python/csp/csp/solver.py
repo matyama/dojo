@@ -4,6 +4,7 @@ from collections import Counter
 from collections.abc import Iterable, Sequence
 from functools import partial
 from multiprocessing import Pool, cpu_count
+from typing import cast
 
 from csp.heuristics import MRV, LeastConstraining
 from csp.inference import InferenceEngine
@@ -18,7 +19,6 @@ def solve(
     processes: int | None = None,
     log_level: int | str | None = None,
 ) -> Solution[Variable, Value]:
-
     # estimate required recursion limit
     recursion_limit = 2 * (csp.num_vars + csp.num_vals)
 
@@ -31,7 +31,6 @@ def solve(
     )
 
     with recursionlimit(limit=recursion_limit, non_decreasing=True):
-
         logger = create_logger(level=level, use_mp=processes > 0)
         run_solve = partial(_solve, logger=logger)
 
@@ -40,24 +39,31 @@ def solve(
                 logger.info("solving single CSP instance")
                 return run_solve(orig)
             case subs:
-
                 logger.info(
                     "CSP intance split into %d independent CSPs", len(subs)
                 )
 
                 if processes > 0:
                     with Pool(processes=processes) as pool:
-                        solution = {
-                            var: val
-                            for s in pool.imap_unordered(run_solve, subs)
-                            for var, val in s.items()
-                        }
+                        # XXX: mypy can't unify Value@_solve with Value@solve
+                        solution = cast(
+                            Solution[Variable, Value],
+                            {
+                                var: val
+                                for s in pool.imap_unordered(run_solve, subs)
+                                for var, val in s.items()
+                            },
+                        )
                 else:
-                    solution = {
-                        var: val
-                        for s in map(run_solve, subs)
-                        for var, val in s.items()
-                    }
+                    # XXX: mypy can't unify Value@_solve with Value@solve
+                    solution = cast(
+                        Solution[Variable, Value],
+                        {
+                            var: val
+                            for s in map(run_solve, subs)
+                            for var, val in s.items()
+                        },
+                    )
                 return solution if len(solution) == csp.num_vars else {}
 
 
@@ -87,9 +93,8 @@ def _split(csp: CSP[Variable, Value]) -> list[CSP[Variable, Value]]:
 def _solve(
     csp: CSP[Variable, Value], logger: logging.Logger
 ) -> Solution[Variable, Value]:
-
-    consistent = partial(CSP[Variable, Value].consistent, csp)
-    complete = partial(CSP[Variable, Value].complete, csp)
+    consistent = partial(CSP.consistent, csp)
+    complete = partial(CSP.complete, csp)
 
     # FIXME: global constraints => not taken into account here
     next_var = MRV[Variable, Value](csp)
@@ -108,7 +113,6 @@ def _solve(
         ctx: AssignCtx[Value],
         domains: Sequence[Domain[Value]],
     ) -> Assignment[Value] | None:
-
         if complete(ctx.assignment):
             return ctx.assignment
 
@@ -120,10 +124,8 @@ def _solve(
         logger.debug("var=%s |A|=%d ds=%s", var, len(ctx.assignment), domains)
 
         for val in sort_domain(var, domains, ctx.unassigned):
-
             # Check if assignment var := val is consistent
             if consistent(var, val, ctx.assignment):
-
                 logger.debug("x%s := %s >> %s", var, val, ctx.assignment)
                 ctx.assignment[var] = val
                 stats["inferences"] += 1

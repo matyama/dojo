@@ -9,7 +9,7 @@ repository = "https://github.com/matyama/dojo"
 keywords = ["CSP", "python", "algorithms"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.12"
 
 [tool.poetry.dev-dependencies]
 black = "*"
@@ -27,7 +27,7 @@ scalene = "*"
 
 [tool.black]
 line-length = 79
-target-version = ['py310']
+target-version = ['py312']
 skip-string-normalization = true
 
 [tool.isort]
@@ -38,7 +38,7 @@ include_trailing_comma = true
 [tool.mypy]
 cache_dir = "/dev/null"
 ignore_missing_imports = false
-python_version = "3.10"
+python_version = "3.12"
 
 # equivalent to --strict except for the modifications above:
 disallow_untyped_calls = true
@@ -52,14 +52,11 @@ warn_unused_configs = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]
-module = [
-    "pytest",
-    "_pytest",
-]
+module = ["pytest", "_pytest"]
 ignore_missing_imports = true
 
 [tool.pylint.basic]
-good-names="""
+good-names = """
     a,b,c,d,e,f,g,h,i,j,k,m,n,p,q,r,s,t,u,v,w,x,y,z,N,
     at,cs,c1,c2,df,ds,ex,fn,fs,ls,lq,nq,of,op,pk,pq,ts,vs,
     xs,x0,x1,x2,x3,ys,y0,y1,y2,

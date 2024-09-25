@@ -121,22 +121,26 @@ class CSP(Generic[Variable, Value]):
 
     def __iadd__(
         self,
-        item: VarDom[Variable, Value]
-        | Iterable[VarDom[Variable, Value]]
-        | BinConst[Variable, Value]
-        | Unary[Variable, Value]
-        | AllDiff[Variable, Value],
+        item: (
+            VarDom[Variable, Value]
+            | Iterable[VarDom[Variable, Value]]
+            | BinConst[Variable, Value]
+            | Unary[Variable, Value]
+            | AllDiff[Variable, Value]
+        ),
     ) -> "CSP[Variable, Value]":
         self._register(item)
         return self
 
     def _register(
         self,
-        item: VarDom[Variable, Value]
-        | Iterable[VarDom[Variable, Value]]
-        | BinConst[Variable, Value]
-        | Unary[Variable, Value]
-        | AllDiff[Variable, Value],
+        item: (
+            VarDom[Variable, Value]
+            | Iterable[VarDom[Variable, Value]]
+            | BinConst[Variable, Value]
+            | Unary[Variable, Value]
+            | AllDiff[Variable, Value]
+        ),
     ) -> None:
         # NOTE: mypy had an issue parsing a `match` version of this if-chain`
 
@@ -158,7 +162,9 @@ class CSP(Generic[Variable, Value]):
             self._register_global(item)
 
         elif isinstance(item, Iterable):
-            for var_dom in item:
+            for vd in item:
+                # TODO: this cast makes mypy happy, but is quite unfortunate
+                var_dom = cast(VarDom[Variable, Value], vd)
                 self += var_dom
 
         else:
@@ -334,11 +340,13 @@ class OrdCSP(Generic[Variable, OrdValue], CSP[Variable, OrdValue]):
 
     def __iadd__(
         self,
-        item: VarDom[Variable, OrdValue]
-        | Iterable[VarDom[Variable, OrdValue]]
-        | BinConst[Variable, OrdValue]
-        | Unary[Variable, OrdValue]
-        | AllDiff[Variable, OrdValue],
+        item: (
+            VarDom[Variable, OrdValue]
+            | Iterable[VarDom[Variable, OrdValue]]
+            | BinConst[Variable, OrdValue]
+            | Unary[Variable, OrdValue]
+            | AllDiff[Variable, OrdValue]
+        ),
     ) -> "OrdCSP[Variable, OrdValue]":
         self._register(item)
         return self
@@ -355,11 +363,13 @@ class NumCSP(Generic[Variable, NumValue], OrdCSP[Variable, NumValue]):
 
     def __iadd__(
         self,
-        item: VarDom[Variable, NumValue]
-        | Iterable[VarDom[Variable, NumValue]]
-        | BinConst[Variable, NumValue]
-        | Unary[Variable, NumValue]
-        | AllDiff[Variable, NumValue],
+        item: (
+            VarDom[Variable, NumValue]
+            | Iterable[VarDom[Variable, NumValue]]
+            | BinConst[Variable, NumValue]
+            | Unary[Variable, NumValue]
+            | AllDiff[Variable, NumValue]
+        ),
     ) -> "NumCSP[Variable, NumValue]":
         self._register(item)
         return self
