@@ -1,0 +1,14 @@
+[package]
+name = "initvec"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+fixedbitset = "0.5.7"
+
+[dev-dependencies]
+tokio = { version = "1.42.0", default-features = false, features = [
+	"rt-multi-thread",
+	"tokio-macros",
+	"macros",
+] }

@@ -1,0 +1,12 @@
+[package]
+name = "examples"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[dev-dependencies]
+initvec = { version = "0.1.0", path = ".." }
+
+[[example]]
+name = "tokio_task_collect"
+path = "tokio_task_collect.rs"
