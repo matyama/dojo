@@ -7,7 +7,7 @@ edition = "2021"
 fixedbitset = "0.5.7"
 
 [dev-dependencies]
-tokio = { version = "1.42.0", default-features = false, features = [
+tokio = { version = "1.44.2", default-features = false, features = [
 	"rt-multi-thread",
 	"tokio-macros",
 	"macros",
